@@ -2,6 +2,8 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-green; icon-glyph: user-circle;
 
+let PREFS = {};
+
 class ToybaruAuth {
     configuration = {
         realm: "https://login.subarudriverslogin.com/oauth2/realms/root/realms/tmna-native",
@@ -9,38 +11,28 @@ class ToybaruAuth {
         scope: "openid profile write",
         redirect_uri: "com.toyota.oneapp:/oauth2Callback",
         cookie_name: "iPlanetDirectoryPro",
-        sign_in_providers: {
-            Apple: {
-                request: "https://appleid.apple.com/auth/authorize",
-                redirect_uri: "/appleSignIn.jsp?service%3DOneAppSignIn",
-                request_params: {
-                    client_id: "com.subaru.fr.prod",
-                    response_type: "code",
-                    response_mode: "query",
-                    //response_mode: "form_post",
-                    //scope: "openid email name",
-                }
-            }
-        }
+        sign_in_providers: {}
     }
     tokens = {}
     tokenId = null;
     auth_code = null;
 
     constructor(options= {}) {
-        const {tokenId = null, auth_code = null, tokens = null} = options;
+        const {tokenId = null, auth_code = null, tokens = null, configuration = {}} = options;
         this.tokenId = tokenId;
         this.auth_code = auth_code;
         this.tokens = tokens;
+
+        Object.assign(this.configuration, configuration);
     }
 
     // Discover OIDC configuration
     async discoverOIDCConfig(realm=null) {
-        console.log("Obtaining OID Configuration...")
         const url = `${realm || this.configuration.realm}/.well-known/openid-configuration`;
+
         const req = new Request(url);
         const config = await req.loadJSON();
-        console.log("Done.")
+
         this.configuration.openid_config = config;
 
         return config;
@@ -246,7 +238,7 @@ class ToybaruAuth {
         req.body = this.Utilities.objectToQueryString(params);
 
         let tokens_payload = await req.loadJSON();
-        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options))
+        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options));
         return this.tokens;
     }
 
@@ -264,11 +256,33 @@ class ToybaruAuth {
         return jwks;
     }
 
+    async get_guid() {
+        await this.check_tokens();
+        if (this.tokens && this.tokens.guid) {
+            return this.tokens.guid;
+        } else {
+            console.error("No GUID found.")
+            console.error(JSON.stringify(this.tokens, undefined, 4));
+        }
+    }
+
+    async get_access_token() {
+        await this.check_tokens();
+        if (this.tokens && this.tokens.access_token) {
+            return this.tokens.access_token;
+        } else {
+            console.error("No access token found.")
+            console.error(JSON.stringify(this.tokens, undefined, 4));
+        }
+    }
+
     async check_tokens() {
         if (this.tokens && this.tokens.hasOwnProperty("expires_at")) {
             if (Date.now() > this.tokens.expires_at) {
                 return await this.refresh_tokens();
             }
+        } else if (this.tokens === null) {
+            console.error("No authroization tokens.  Please log in and try again.");
         }
 
         return this.tokens;
@@ -308,7 +322,7 @@ class ToybaruAuth {
             return this.tokens;
         }
 
-        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options))
+        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options));
         return this.tokens;
     }
 
@@ -338,16 +352,14 @@ class ToybaruAuth {
         }
 
         static async extract_tokens(tokens, jwt_keys) {
-            // console.log("Extracting")
-            // console.log(tokens)
-            tokens["guid"] = await this.parseJwt(tokens["id_token"], jwt_keys)["sub"]
-            tokens["updated_at"] = Date.now()
-            tokens["expires_at"] = tokens["updated_at"] + tokens["expires_in"]
-
-            //console.log("tokens retrieved")
+            let new_tokens = {...tokens};
+            const jwt = await this.parseJwt(tokens.id_token, jwt_keys);
+            new_tokens.guid = jwt.sub;
+            new_tokens.updated_at = Date.now();
+            new_tokens.expires_at = tokens.updated_at + tokens.expires_in;
 
             //save_tokens(tokens)
-            return tokens
+            return new_tokens
         }
 
         static base64UrlDecode(str) {
@@ -589,63 +601,393 @@ class ToybaruAuth {
 
     }
 }
-class ToybaruClient {
 
-}
-async function load_tokens(auth_instance) {
-    let tokens = {}
-    if (Keychain.contains("subaru_tokens")) {
-        tokens = JSON.parse(Keychain.get("subaru_tokens"))
-        auth_instance.tokens = tokens;
-        let result = await auth_instance.check_tokens();
-        save_tokens(auth_instance)
+class ToybaruClient {
+    configuration = {
+        api_gateway: "https://oneapi1.telematicsct.com",
+        apk: "TQCeSj6rOUOMVQB1V-O0QhuESDm-JUmuOAaeQDCla/JwJCa/akWOON::",
+        cache_interval: 10000, //milliseconds
+        refresh_interval: 60000, //milliseconds
+    }
+    auth = new ToybaruAuth();
+
+    constructor(options={}) {
+        if (options.auth) {
+            this.auth = options.auth;
+        }
+
+        if (options.configuration) {
+            Object.assign(this.configuration, options.configuration);
+        }
     }
 
-    return tokens
+    async get_auth_headers() {
+        let apk_name = atob("T@.?RBhqP-SW".split('').map(char => String.fromCharCode(char.charCodeAt(0) + 3)).join(''));
+        let headers =
+         {
+            "AUTHORIZATION": `Bearer ${await this.auth.get_access_token()}`,
+            "X-GUID": await this.auth.get_guid(),
+            "X-APPBRAND": "S"
+        }
+        headers[apk_name] = atob(this.configuration.apk.split('').map(char => String.fromCharCode(char.charCodeAt(0) + 3)).join(''));
+        return headers
+    }
+
+    async api_request(method, endpoint, header_params, json, ...args) {
+        let req = new Request(`${this.configuration.api_gateway}/${endpoint}`);
+        req.headers = await this.get_auth_headers();
+
+        if (header_params != null) {
+            req.headers = Object.assign({}, req.headers, header_params)
+        }
+
+        if (json != null) {
+            req.headers = Object.assign({}, req.headers, {"Content-Type": "application/json"})
+            req.body = JSON.stringify(json)
+        }
+
+        req.method = method
+
+        let resp_json = await req.loadJSON()
+        if (resp_json.hasOwnProperty("payload")) {
+            return resp_json["payload"]
+        } else {
+            console.log(await req.loadString())
+
+            if (resp_json.hasOwnProperty("status")) {
+                if (resp_json["status"].hasOwnProperty("messages")) {
+                    if (resp_json["status"]["messages"][0]["description"] == "Unauthorized") {
+                        console.error("Client is not authorized.  Try logging in again.")
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    async api_get(endpoint, header_params) {
+        return await this.api_request("GET", endpoint, header_params)
+    }
+
+    async api_post(endpoint, json, header_params) {
+        return await this.api_request("POST", endpoint, header_params, json)
+    }
+
+    async get_user_vehicle_list() {
+        return await this.api_get("v3/vehicle/guid")
+    }
+
+    async get_vehicle(vin) {
+        let vehicle = this.get_user_vehicle_list().find(vehicle => vehicle.vin === vin);
+
+        return new ToybaruClientVehicle(this, vehicle);
+    }
 }
 
-function save_tokens(auth_instance) {
-    Keychain.set("subaru_tokens", JSON.stringify(auth_instance.tokens))
-    console.log("Tokens Stored");
-}
+class ToybaruClientVehicle {
+    vehicle_data = {
+        vin: "",
+        nickName: "",
+        displayModelDescription: "",
+        image: "",
+    }
+    client = new ToybaruClient();
+    status_cache = {};
+    last_ev_timestamp = null;
+    last_status_timestamp = null;
+    next_refresh;
 
-async function login() {
-    let fm = FileManager.iCloud();
-    let path = fm.joinPath(fm.documentsDirectory(), "ToybaruLogin.html")
-    let url = `file://${path}?success=${URLScheme.forRunningScript()}`
-    console.log(url);
+    constructor(client, vehicle_data) {
+        this.client = client;
+        this.vehicle_data = {...vehicle_data};
+    }
 
-    let wv = new WebView();
-    wv.shouldAllowRequest = request => {
-        if (!request.url.startsWith(URLScheme.forRunningScript())) return true;
-        // HERE - Close the WebView
-        webview.loadHTML('Please close this window');
+    async verify_vin() {
+        let vins = await this.client.get_user_vehicle_list.map(function (vehicle) {
+            return vehicle.vin;
+        })
+        return this.vehicle_data.vin in vins;
+
+
+    }
+
+    async remote_request(command) {
+        let result = await this.client.api_post("v1/global/remote/command", {"command": command}, {"VIN": this.vehicle_data.vin});
+        if (result["returnCode"] == "000000") {
+            return true;
+        }
         return false;
     }
 
-    await wv.loadHTML(url);
-    wv.present();
+    async refresh_request() {
+        let result_electric = await this.client.api_post("v2/electric/realtime-status", {"guid": await this.client.auth.get_guid(), "vin": this.vehicle_data.vin}, {"VIN": this.vehicle_data.vin});
+        let result = await this.client.api_post("v1/global/remote/refresh-status", {"guid": await this.client.auth.get_guid(), "vin": this.vehicle_data.vin}, {"VIN": this.vehicle_data.vin});
+
+        if (result.returnCode === "000000" && result_electric.returnCode === "000000") {
+            return true;
+        }
+        return false;
+    }
+
+    async remote_door_lock() {
+        return await this.client.remote_request(this.vehicle_data.vin, "door-lock");
+    }
+
+    async remote_door_unlock() {
+        return await this.client.remote_request(this.vehicle_data.vin, "door-unlock");
+    }
+
+    async remote_engine_start() {
+        return await this.client.remote_request(this.vehicle_data.vin, "engine-start");
+    }
+
+    async remote_engine_stop() {
+        return await this.client.remote_request(this.vehicle_data.vin, "engine-stop");
+    }
+
+    async get_vehicle_status() {
+        let status;
+
+        if (this.status_cache.last_status && (Date.now() - this.status_cache.last_status.cached_at > this.client.configuration.cache_interval)) {
+            status = this.status_cache.last_status;
+        } else {
+            status = await this.client.api_get("v1/global/remote/status", {"VIN": this.vehicle_data.vin});
+            this.status_cache.last_status = ev_status;
+            this.status_cache.last_status.cached_at = Date.now();
+        }
+        if (status.occurrenceDate) {
+            this.last_status_timestamp = new Date(status.occurrenceDate);
+
+            let now = new Date();
+            if ((now - this.last_status_timestamp )> this.client.configuration.refresh_interval){
+                await this.refresh_request();
+            }
+        }
+        return status
+    }
+
+    async get_electric_status() {
+        let ev_status;
+        if (this.status_cache.last_ev_status && (Date.now() - this.status_cache.last_ev_status.cached_at > this.client.configuration.cache_interval)) {
+            ev_status = this.status_cache.last_status;
+        } else {
+            ev_status = await this.client.api_get("v2/electric/status", {"VIN": this.vehicle_data.vin})
+            this.status_cache.last_ev_status = ev_status;
+            this.status_cache.last_ev_status.cached_at = Date.now();
+        }
+
+        if (ev_status.vehicleInfo && ev_status.vehicleInfo.acquisitionDatetime) {
+            this.last_ev_timestamp = new Date(ev_status.vehicleInfo.acquisitionDatetime);
+
+            // Request updated status from vehicle if data is stale.
+            let now = Date.now();
+            if ((now - this.last_ev_timestamp )> this.client.configuration.refresh_interval){
+                await this.refresh_request();
+                // Allow the widget to refresh again after 20 seconds.
+                this.next_refresh = Date.now() + 20000;
+            } else {
+                // Prevent widget from refreshing before the refresh interval.
+                this.next_refresh = Date.now() + this.client.configuration.refresh_interval;
+            }
+        }
+        return ev_status;
+    }
+
+    async get_charge_info(property) {
+        let ev_status = await this.get_electric_status();
+
+        if (ev_status.vehicleInfo && ev_status.vehicleInfo.chargeInfo) {
+            if (property === null) {
+                return ev_status.vehicleInfo.chargeInfo;
+
+            } else if (ev_status.vehicleInfo.chargeInfo.hasOwnProperty(property)) {
+                return ev_status.vehicleInfo.chargeInfo[property];
+            }
+        }
+
+    }
+
+    async get_car_image() {
+        return this.vehicle_data.image;
+    }
+
+    async get_battery_percentage(vin) {
+        return await this.get_charge_info("chargeRemainingAmount");
+    }
+
+    async get_ev_distances() {
+        let chargeInfo = await this.get_charge_info();
+        if (chargeInfo != null) {
+            return {
+                evDistance: chargeInfo.evDistance,
+                evDistanceAC: chargeInfo.evDistanceAC,
+                unit: chargeInfo.evDistanceUnit
+            };
+        }
+    }
+
+    async get_charge_time() {
+        let chargeInfo = await this.get_charge_info();
+        if (chargeInfo != null) {
+            return chargeInfo.remainingChargeTime;
+        }
+    }
+
+    async get_lock_status() {
+        let vehicle_status = await this.get_vehicle_status();
+
+        if (vehicle_status === null) {
+            return vehicle_status;
+        }
+
+        let locked = true;
+
+        for (let category of vehicle_status.vehicleStatus) {
+            for (let section of category.sections) {
+                for (let value of section.values) {
+                    if (value.value === "Unlocked") {
+                        locked = false;
+                    }
+                }
+            }
+        }
+
+        return locked;
+    }
+
+    async is_locked() {
+        let locked = await this.get_lock_status();
+
+        return locked
+    }
 }
-// Example usage
+
+class ToybaruApp {
+
+    _prefs = {};
+
+    constructor(options = {}) {
+        const {auth = new ToybaruAuth({tokenId: options.tokenId}), client = null, vehicle = null} = options;
+
+        this.load_prefs();
+        if (client) {
+            this.client = client
+        } else if (vehicle) {
+            this.client = vehicle.client;
+        } else {
+            this.client = new ToybaruClient({auth: auth});
+        }
+
+        if (this._prefs.vehicle && !vehicle) {
+            this.vehicle = new ToybaruClientVehicle(this.client, this._prefs.vehicle);
+        } else {
+            this.vehicle = vehicle || null;
+        }
+    }
+
+    async init() {
+        if (this.client.auth.tokenId) {
+            await this.client.auth.acquire_tokens();
+            this.save_tokens();
+        } else {
+            await this.load_tokens()
+        }
+
+        if (!this.client.auth.tokens) {
+            await this.login();
+        }
+
+        if (!this.vehicle) {
+            await this.select_vehicle();
+        }
+    }
+
+    async load_tokens() {
+        let tokens = {}
+        if (Keychain.contains("subaru_tokens")) {
+            tokens = JSON.parse(Keychain.get("subaru_tokens"))
+            this.client.auth.tokens = tokens;
+            await this.client.auth.check_tokens();
+            this.save_tokens();
+        }
+    }
+
+    save_tokens() {
+        Keychain.set("subaru_tokens", JSON.stringify(this.client.auth.tokens))
+    }
+
+    save_prefs() {
+        Keychain.set("subaru_connect_prefs", JSON.stringify(this._prefs));
+    }
+
+    load_prefs() {
+        if (Keychain.contains("subaru_connect_prefs")) {
+            this._prefs = JSON.parse(Keychain.get("subaru_connect_prefs"));
+        }
+    }
+
+    async login() {
+        let fm = FileManager.iCloud();
+        let path = fm.joinPath(fm.documentsDirectory(), "ToybaruLogin.html")
+        let url = `file://${path}?success=${URLScheme.forRunningScript()}`
+
+        let wv = new WebView();
+        wv.shouldAllowRequest = request => {
+            if (!request.url.startsWith(URLScheme.forRunningScript())) return true;
+            // HERE - Close the WebView
+            webview.loadHTML('Please close this window');
+            return false;
+        }
+
+        await wv.loadHTML(url);
+        wv.present();
+    }
+
+    async select_vehicle() {
+        let selected_vehicle = {}
+        const vehicles = await this.client.get_user_vehicle_list();
+
+        // Create a table
+        let table = new UITable()
+
+        // Create a header row
+        let headerRow = new UITableRow()
+        headerRow.isHeader = true
+        headerRow.addText("Select Vehicle")
+        table.addRow(headerRow)
+
+        // Create a row for each animal
+        for (let vehicle of vehicles) {
+            let row = new UITableRow();
+            const image = row.addImageAtURL(vehicle.image);
+            image.widthWeight = 15;
+            row.height = 100;
+            const text = row.addText(vehicle.nickName, vehicle.displayModelDescription);
+            text.leftAligned();
+            text.widthWeight = 80;
+            row.onSelect = () => {
+                selected_vehicle = vehicle;
+            }
+            table.addRow(row);
+        }
+
+        // Present the table
+        await table.present()
+
+        this._prefs.vehicle = selected_vehicle;
+        save_prefs();
+
+        this.vehicle = new ToybaruClientVehicle(this.client, selected_vehicle);
+        return this.vehicle;
+    }
+}
+
 async function main(options = {}) {
-    console.log("start");
-    let tba = new ToybaruAuth({tokenId: options.tokenId});
+    let tba = new ToybaruApp({tokenId: options.tokenId})
+    await tba.init();
 
-    if (tba.tokenId) {
-        await tba.acquire_tokens();
-        save_tokens(tba);
-    } else {
-        await load_tokens(tba);
-    }
+    console.log(await tba.vehicle.get_electric_status());
 
-    console.log(`TOKENS: ${JSON.stringify(tba.tokens)}`)
-
-    if (tba.tokens) {
-        new Alert("You are logged in.")
-    } else {
-        console.log("Logging in");
-        await login();
-    }
 }
 
 await main(args.queryParameters);
