@@ -2,6 +2,27 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-green; icon-glyph: user-circle;
 
+class LoginError extends Error {
+    constructor(message) {
+        super(message); // Pass the message to the Error constructor
+        this.name = 'LoginError'; // Set the name of the error
+    }
+}
+
+class NotLoggedInError extends Error {
+    constructor(message) {
+        super(message); // Pass the message to the Error constructor
+        this.name = 'NotLoggedInError'; // Set the name of the error
+    }
+}
+
+class ExpiredTokenError extends Error {
+    constructor(message) {
+        super(message); // Pass the message to the Error constructor
+        this.name = 'ExpiredTokenError'; // Set the name of the error
+    }
+}
+
 class ToybaruAuth {
     configuration = {
         realm: "https://login.subarudriverslogin.com/oauth2/realms/root/realms/tmna-native",
@@ -11,15 +32,27 @@ class ToybaruAuth {
         cookie_name: "iPlanetDirectoryPro",
         sign_in_providers: {}
     }
+
+    callback;
     tokens = {}
     tokenId = null;
     auth_code = null;
+    refresh_secs;
 
-    constructor(options= {}) {
-        const {tokenId = null, auth_code = null, tokens = null, configuration = {}} = options;
+    constructor(options = {}) {
+        const {
+            callback = null,
+            tokenId = null,
+            auth_code = null,
+            tokens = null,
+            configuration = {},
+            refresh_secs = 300} = options;
+
+        this.callback = callback;
         this.tokenId = tokenId;
         this.auth_code = auth_code;
         this.tokens = tokens;
+        this.refresh_secs = refresh_secs;
 
         Object.assign(this.configuration, configuration);
     }
@@ -100,7 +133,8 @@ class ToybaruAuth {
         }
 
         if (!oid_config.hasOwnProperty("authorization_endpoint")) {
-            console.log(oid_config);
+            console.error("No Authorization Endpoint found in OpenID Configuration.");
+            console.error(oid_config);
             return;
         }
 
@@ -236,7 +270,15 @@ class ToybaruAuth {
         req.body = this.Utilities.objectToQueryString(params);
 
         let tokens_payload = await req.loadJSON();
-        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options));
+
+        if (req.response.statusCode !== 200) {
+            throw new LoginError("Error acquiring tokens.");
+        }
+
+        tokens_payload.auth_code = authorization_code;
+
+        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options), this.callback);
+
         return this.tokens;
     }
 
@@ -274,14 +316,56 @@ class ToybaruAuth {
 
     async check_tokens() {
         if (this.tokens && this.tokens.hasOwnProperty("expires_at")) {
-            if (Date.now() > this.tokens.expires_at) {
+            if (this.tokens.expires_at < Date.now()) {
+                try {
+                    console.log("Token has expired. Refreshing tokens.");
+                    return await this.refresh_tokens();
+                } catch (error) {
+                    console.error(error);
+                    if (error.name === "LoginError") {
+                        console.log(this.tokenId);
+                        if (this.tokenId) {
+                            try {
+                                return await this.acquire_tokens();
+                            } catch (error) {
+                                if (error.name === "LoginError") {
+                                    console.log("Error acquiring tokens using saved session.")
+                                }
+                            }
+                        }
+
+                        // Clear tokens and auth code
+                        this.tokens = null;
+                        this.auth_code = null;
+
+                        if (this.callback) {
+                            console.log("Clearing saved tokens.")
+                            await this.callback(this.tokens);
+                        }
+
+                        throw new ExpiredTokenError("Token has expired.");
+                    }
+                }
+
+            } else if (this.refresh_secs > 0 && Date.now() > this.tokens.updated_at + this.refresh_secs * 1000) {
+                return await this.refresh_tokens();
+
+            } else if (this.refresh_secs < 0 && Date.now() > this.tokens.expires_at + this.refresh_secs * 1000) {
+                return await this.refresh_tokens();
+
+            } else if (this.refresh_secs === 0) {
                 return await this.refresh_tokens();
             }
-        } else if (this.tokens === null) {
-            console.error("No authroization tokens.  Please log in and try again.");
+
+        } else {
+            throw new NotLoggedInError("User is not logged in.");
         }
 
         return this.tokens;
+    }
+
+    get is_logged_in() {
+        return this.tokens !== null && this.tokens.hasOwnProperty("access_token") && this.tokens.hasOwnProperty("refresh_token") && this.tokens.hasOwnProperty("id_token");
     }
 
     async refresh_tokens(options = {}){
@@ -290,31 +374,31 @@ class ToybaruAuth {
         options.oid_config = oid_config || this.configuration.hasOwnProperty("openid_config") ? this.configuration.openid_config : await this.discoverOIDCConfig();
 
         if (!this.tokens.hasOwnProperty("refresh_token")) {
-            return null
+            throw new NotLoggedInError("No refresh token found.")
         }
 
         // Request tokens
         const params = {
             "client_id": this.configuration.client_id,
-            "redirect_uri": this.configuration.redirect_uri,
-            "grant_type": "refresh_token",
             "code_verifier": "plain",
+            "grant_type": "refresh_token",
+            "redirect_uri": this.configuration.redirect_uri,
             "refresh_token": this.tokens.refresh_token,
         }
 
         let req = new Request(options.oid_config.token_endpoint)
         req.method = "POST"
-        req.headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        req.body = Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+        req.headers = {"Content-Type": "application/x-www-form-urlencoded"};
+        req.body = this.Utilities.objectToQueryString(params);
 
         let tokens_payload = await req.loadJSON();
-        if (tokens_payload.hasOwnProperty("error")) {
-            console.error("Token Refresh Error");
-            console.error(req.response);
-            // console.log(params);
-            this.tokens = null;
-            this.auth_code = null;
-            this.tokenId = null;
+        if (req.response.statusCode !== 200) {
+            console.error("Error refreshing tokens.")
+            console.error(JSON.stringify(tokens_payload, undefined, 4));
+            throw new LoginError("Refresh token has expired.");
+
+        } else {
+            this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options), this.callback);
             return this.tokens;
         }
 
@@ -347,14 +431,17 @@ class ToybaruAuth {
             return params;
         }
 
-        static async extract_tokens(tokens, jwt_keys) {
+        static async extract_tokens(tokens, jwt_keys, callback=null) {
             let new_tokens = {...tokens};
             const jwt = await this.parseJwt(tokens.id_token, jwt_keys);
             new_tokens.guid = jwt.sub;
             new_tokens.updated_at = Date.now();
-            new_tokens.expires_at = tokens.updated_at + tokens.expires_in;
+            new_tokens.expires_at = new_tokens.updated_at + new_tokens.expires_in * 1000;
 
-            //save_tokens(tokens)
+            if (callback) {
+                await callback(new_tokens);
+            }
+
             return new_tokens
         }
 
@@ -595,15 +682,15 @@ class ToybaruClient {
         api_gateway: "https://oneapi.telematicsct.com",
         apk: "TQCeSj6rOUOMVQB1V-O0QhuESDm-JUmuOAaeQDCla/JwJCa/akWOON::",
         cache_interval: 10000, //milliseconds
-        refresh_interval: 60000, //milliseconds
+        refresh_interval: 300000, //milliseconds
     }
-    auth = new ToybaruAuth();
+    auth;
     device_id;
 
-    constructor(options={}) {
-        if (options.auth) {
-            this.auth = options.auth;
-        }
+    constructor(options = {}) {
+        const {auth = new ToybaruAuth({callback: options.callback}), device_id = null} = options;
+
+        this.auth = auth;
 
         if (options.configuration) {
             Object.assign(this.configuration, options.configuration);
@@ -652,30 +739,30 @@ class ToybaruClient {
     }
 
     async api_request({method, endpoint, header = {}, json = null}) {
-        // console.log({method: method, endpoint: endpoint, header: header, json: json})
+        if (this.auth.is_logged_in) {
+            let req = new Request(`${this.configuration.api_gateway}/${endpoint}`);
+            req.headers = {...await this.get_auth_headers(), ...header};
 
-        let req = new Request(`${this.configuration.api_gateway}/${endpoint}`);
-        req.headers = {...await this.get_auth_headers(), ...header};
-
-        if (json) {
-            req.headers = {"Content-Type": "application/json", ...req.headers};
-            req.body = JSON.stringify(json, undefined, 4);
-        }
-
-        req.method = method;
-        try {
-            let resp_json = await req.loadJSON();
-            if (resp_json.payload) {
-                return resp_json.payload;
-            } else if (resp_json.status?.messages?.[0]?.description === "Unauthorized") {
-                console.error("Client is not authorized. Try logging in again.");
+            if (json) {
+                req.headers = {"Content-Type": "application/json", ...req.headers};
+                req.body = JSON.stringify(json, undefined, 4);
             }
-        } catch (error) {
-            console.error(error);
-            console.log(req.response);
-        }
 
-        return req.response;
+            req.method = method;
+            try {
+                let resp_json = await req.loadJSON();
+                if (resp_json.payload) {
+                    return resp_json.payload;
+                } else if (resp_json.status?.messages?.[0]?.description === "Unauthorized") {
+                    console.error("Client is not authorized. Try logging in again.");
+                }
+            } catch (error) {
+                console.error(error);
+                console.log(req.response);
+            }
+
+            return req.response;
+        }
     }
 
     async api_get(endpoint, options= {}) {
@@ -706,13 +793,28 @@ class ToybaruClientVehicle {
     }
     client = new ToybaruClient();
     status_cache = {};
-    last_ev_timestamp = null;
-    last_status_timestamp = null;
+
     next_refresh;
 
     constructor(client, vehicle_data) {
+        let {status_cache, ...remaining_data} = vehicle_data;
         this.client = client;
-        this.vehicle_data = {...vehicle_data};
+        this.status_cache = status_cache || {};
+        this.vehicle_data = {...remaining_data};
+    }
+
+    get last_ev_timestamp() {
+        if (this.status_cache.last_ev_status && this.status_cache.last_ev_status.vehicleInfo && this.status_cache.last_ev_status.vehicleInfo.acquisitionDatetime) {
+            return new Date(this.status_cache.last_ev_status.vehicleInfo.acquisitionDatetime);
+        }
+        return null
+    }
+
+    get last_status_timestamp() {
+        if (this.status_cache.last_status && this.status_cache.last_status.occurrenceDate) {
+            return new Date(this.status_cache.last_status.occurrenceDate);
+        }
+        return null
     }
 
     async verify_vin() {
@@ -782,7 +884,7 @@ class ToybaruClientVehicle {
     async get_vehicle_status() {
         let status;
 
-        if (this.status_cache.last_status && (Date.now() - this.status_cache.last_status.cached_at > this.client.configuration.cache_interval)) {
+        if (this.status_cache.last_status && (Date.now() - this.status_cache.last_status.cached_at < this.client.configuration.cache_interval)) {
             status = this.status_cache.last_status;
         } else {
             status = await this.client.api_get("v1/global/remote/status", {header: {"VIN": this.vehicle_data.vin}});
@@ -790,11 +892,15 @@ class ToybaruClientVehicle {
             this.status_cache.last_status.cached_at = Date.now();
         }
         if (status.occurrenceDate) {
-            this.last_status_timestamp = new Date(status.occurrenceDate);
-
             let now = new Date();
             if ((now - this.last_status_timestamp )> this.client.configuration.refresh_interval){
                 await this.refresh_status_request();
+
+                // Allow the widget to refresh again after 20 seconds.
+                this.next_refresh = Date.now() + 20000;
+            } else {
+                // Prevent widget from refreshing before the refresh interval.
+                this.next_refresh = Date.now() + this.client.configuration.refresh_interval;
             }
         }
         return status
@@ -802,8 +908,8 @@ class ToybaruClientVehicle {
 
     async get_electric_status() {
         let ev_status;
-        if (this.status_cache.last_ev_status && (Date.now() - this.status_cache.last_ev_status.cached_at > this.client.configuration.cache_interval)) {
-            ev_status = this.status_cache.last_status;
+        if (this.status_cache.last_ev_status && (Date.now() - this.status_cache.last_ev_status.cached_at < this.client.configuration.cache_interval)) {
+            ev_status = this.status_cache.last_ev_status;
         } else {
             ev_status = await this.client.api_get("v2/electric/status", {header: {"VIN": this.vehicle_data.vin}})
             this.status_cache.last_ev_status = ev_status;
@@ -811,8 +917,6 @@ class ToybaruClientVehicle {
         }
 
         if (ev_status.vehicleInfo && ev_status.vehicleInfo.acquisitionDatetime) {
-            this.last_ev_timestamp = new Date(ev_status.vehicleInfo.acquisitionDatetime);
-
             // Request updated status from vehicle if data is stale.
             let now = Date.now();
             if ((now - this.last_ev_timestamp )> this.client.configuration.refresh_interval){
@@ -899,16 +1003,18 @@ class ToybaruClientVehicle {
 class ToybaruApp {
 
     _prefs = {};
+    client;
+    vehicle;
 
     constructor(options = {}) {
-        const {auth = new ToybaruAuth({tokenId: options.tokenId}), client = null, vehicle = null} = options;
+        const {auth = new ToybaruAuth({tokenId: options.tokenId, callback: this.save_tokens}), client = null, vehicle = null} = options;
 
         if (client) {
             this.client = client
         } else if (vehicle) {
             this.client = vehicle.client;
         } else {
-            this.client = new ToybaruClient({auth: auth});
+            this.client = new ToybaruClient({auth: auth, callback: this.save_tokens});
         }
         this.load_prefs();
 
@@ -922,13 +1028,20 @@ class ToybaruApp {
     async init() {
         if (this.client.auth.tokenId) {
             await this.client.auth.acquire_tokens();
-            this.save_tokens();
-        } else {
-            await this.load_tokens()
-        }
 
-        if (!this.client.auth.tokens) {
-            await this.login();
+        } else {
+            try {
+                await this.load_tokens()
+            } catch (error) {
+                console.error(error);
+                if (["NotLoggedInError", "ExpiredTokenError"].includes(error.name)) {
+                    console.error("User is not logged in.");
+                }
+            }
+
+            if (config.runsInApp && !this.client.auth.is_logged_in) {
+                await this.login();
+            }
         }
 
         if (!this.vehicle) {
@@ -943,17 +1056,28 @@ class ToybaruApp {
         if (Keychain.contains("subaru_tokens")) {
             tokens = JSON.parse(Keychain.get("subaru_tokens"))
             this.client.auth.tokens = tokens;
+
+            if (tokens.auth_code) {
+                this.client.auth.auth_code = tokens.auth_code;
+            }
+
             await this.client.auth.check_tokens();
-            this.save_tokens();
         }
     }
 
-    save_tokens() {
-        Keychain.set("subaru_tokens", JSON.stringify(this.client.auth.tokens))
+    save_tokens(tokens=null) {
+        if (!tokens) {
+            Keychain.remove("subaru_tokens");
+            return
+        }
+
+        Keychain.set("subaru_tokens", JSON.stringify(tokens))
     }
 
     save_prefs() {
         this._prefs.device_id = this.client.get_device_id();
+        this._prefs.vehicle.status_cache = this.vehicle.status_cache;
+
         Keychain.set("subaru_connect_prefs", JSON.stringify(this._prefs));
     }
 
@@ -967,7 +1091,7 @@ class ToybaruApp {
     async login() {
         let fm = FileManager.iCloud();
         let path = fm.joinPath(fm.documentsDirectory(), "ToybaruLogin.html")
-        let url = `file://${path}?success=${URLScheme.forRunningScript()}`
+        let url = `file://${path}?locale=${Device.locale().replace("_", "-")}&success=${URLScheme.forRunningScript()}`
 
         let wv = new WebView();
         wv.shouldAllowRequest = request => {
@@ -978,7 +1102,11 @@ class ToybaruApp {
         }
 
         await wv.loadURL(url);
-        wv.present();
+        await wv.present();
+    }
+
+    get is_logged_in() {
+        return this.client.auth.is_logged_in;
     }
 
     async select_vehicle() {
