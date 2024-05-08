@@ -58,7 +58,7 @@ class ToybaruAuth {
     }
 
     // Discover OIDC configuration
-    async discoverOIDCConfig(realm=null) {
+    async discoverOIDCConfig(realm = null) {
         const url = `${realm || this.configuration.realm}/.well-known/openid-configuration`;
 
         const req = new Request(url);
@@ -94,7 +94,7 @@ class ToybaruAuth {
         return alert.textFieldValue(0)
     }
 
-    async process_auth_callbacks(data, creds= {}) {
+    async process_auth_callbacks(data, creds = {}) {
         if ("callbacks" in data) {
             for (const callback of data["callbacks"]) {
                 if (callback["type"] === "NameCallback") {
@@ -123,7 +123,7 @@ class ToybaruAuth {
     }
 
     async authenticate_user(options = {}) {
-        let {oid_config=null} = options;
+        let {oid_config = null} = options;
         // Load or access the OpenID server configuration
         options.oid_config = oid_config || this.configuration.hasOwnProperty("openid_config") ? this.configuration.openid_config : await this.discoverOIDCConfig();
 
@@ -165,7 +165,7 @@ class ToybaruAuth {
                 if (Object.keys(processed.creds).length > 0) {
                     creds = processed.creds;
                 }
-            } catch (error){
+            } catch (error) {
                 console.error(error);
                 console.log(req);
             }
@@ -241,7 +241,7 @@ class ToybaruAuth {
 
     }
 
-    async acquire_tokens(options = {}){
+    async acquire_tokens(options = {}) {
         let {authorization_code = null, oid_config = null} = options;
 
         // Load or access the OpenID server configuration
@@ -282,8 +282,8 @@ class ToybaruAuth {
         return this.tokens;
     }
 
-    async fetch_jwt_keys(options = {}){
-        let {oid_config=null} = options;
+    async fetch_jwt_keys(options = {}) {
+        let {oid_config = null} = options;
         // Load or access the OpenID server configuration
         options.oid_config = oid_config || this.configuration.hasOwnProperty("openid_config") ? this.configuration.openid_config : await this.discoverOIDCConfig();
 
@@ -355,6 +355,7 @@ class ToybaruAuth {
 
             } else if (this.refresh_secs === 0) {
                 return await this.refresh_tokens();
+
             }
 
         } else {
@@ -368,7 +369,7 @@ class ToybaruAuth {
         return this.tokens !== null && this.tokens.hasOwnProperty("access_token") && this.tokens.hasOwnProperty("refresh_token") && this.tokens.hasOwnProperty("id_token");
     }
 
-    async refresh_tokens(options = {}){
+    async refresh_tokens(options = {}) {
         const {oid_config = null} = options;
         // Load or access the OpenID server configuration
         options.oid_config = oid_config || this.configuration.hasOwnProperty("openid_config") ? this.configuration.openid_config : await this.discoverOIDCConfig();
@@ -402,8 +403,34 @@ class ToybaruAuth {
             return this.tokens;
         }
 
-        this.tokens = await this.Utilities.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options));
-        return this.tokens;
+    }
+
+    async logout(options = {}) {
+        const {oid_config = null} = options;
+        // Load or access the OpenID server configuration
+        options.oid_config = oid_config || this.configuration.hasOwnProperty("openid_config") ? this.configuration.openid_config : await this.discoverOIDCConfig();
+
+
+        const params = {
+            "client_id": this.configuration.client_id,
+            "redirect_uri": this.configuration.redirect_uri,
+            "id_token_hint": this.tokens.id_token,
+        }
+
+        const url = `${options.oid_config.end_session_endpoint}?${this.Utilities.objectToQueryString(params)}`;
+        let req = new Request(url);
+        req.method = "GET"
+        req.headers = {Accepts: "application/json"}
+
+        console.log("Requesting Logout.")
+        await req.load();
+        console.log("Done");
+        console.log(req.response);
+
+        // this.tokens = null;
+        // this.auth_code = null;
+        // this.tokenId = null;
+        // Keychain.remove("subaru_tokens");
     }
 
     Utilities = class {
@@ -454,7 +481,7 @@ class ToybaruAuth {
                 if (pad === 1) {
                     throw new Error('InvalidLengthError: Input base64url string is the wrong length to determine padding');
                 }
-                str += new Array(5-pad).join('=');
+                str += new Array(5 - pad).join('=');
             }
             return atob(str);
         }
@@ -472,7 +499,6 @@ class ToybaruAuth {
         }
 
         static async parseJwt(payload, jwks) {
-            // console.log(JSON.stringify(jwks, undefined, 4))
             let jwt_payloads = payload.split(".");
             try {
                 let data = {
@@ -480,7 +506,7 @@ class ToybaruAuth {
                     jwt: JSON.parse(this.base64UrlDecode(jwt_payloads[1])),
                     signature: jwt_payloads[2]
                 }
-                // console.log(JSON.stringify(data, undefined, 4))
+
                 let key = this.key_to_PEM(jwks.keys.find(key => key.kid === data.headers.kid));
 
                 let verified = false;
@@ -494,7 +520,7 @@ class ToybaruAuth {
                             args: [payload, key],
                             remote_scripts: ["https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/11.1.0/jsrsasign-all-min.js"]
                         })
-                        // console.log(`Verified? ${verified}`);
+
                     } else {
                         console.error("Unknown exception")
                         console.log(error.toString())
@@ -540,7 +566,7 @@ class ToybaruAuth {
          * @returns {Promise<any>} - A promise that resolves with the result of the function execution.
          */
         static async executeInWebView(options) {
-            const {func, context= null, args = [], remote_scripts = []} = options;
+            const {func, context = null, args = [], remote_scripts = []} = options;
             // Create a new WebView
             let webView = new WebView();
 
@@ -701,11 +727,11 @@ class ToybaruClient {
     async get_auth_headers() {
         let apk_name = atob("T@.?RBhqP-SW".split('').map(char => String.fromCharCode(char.charCodeAt(0) + 3)).join(''));
         let headers =
-         {
-            "AUTHORIZATION": `Bearer ${await this.auth.get_access_token()}`,
-            "X-GUID": await this.auth.get_guid(),
-            "X-APPBRAND": "S"
-        }
+            {
+                "AUTHORIZATION": `Bearer ${await this.auth.get_access_token()}`,
+                "X-GUID": await this.auth.get_guid(),
+                "X-APPBRAND": "S"
+            }
         headers[apk_name] = atob(this.configuration.apk.split('').map(char => String.fromCharCode(char.charCodeAt(0) + 3)).join(''));
         return headers
     }
@@ -721,7 +747,7 @@ class ToybaruClient {
     Utilities = class {
         static generateRandomBigInt(hexDigits) {
             let hexString = '';
-            for(let i = 0; i < hexDigits; i++) {
+            for (let i = 0; i < hexDigits; i++) {
                 hexString += Math.floor(Math.random() * 16).toString(16);
             }
             return BigInt('0x' + hexString);
@@ -765,7 +791,7 @@ class ToybaruClient {
         }
     }
 
-    async api_get(endpoint, options= {}) {
+    async api_get(endpoint, options = {}) {
         return await this.api_request({method: "GET", endpoint: endpoint, ...options});
     }
 
@@ -827,7 +853,10 @@ class ToybaruClientVehicle {
     }
 
     async remote_request(command) {
-        let result = await this.client.api_post("v1/global/remote/command", {json: {"command": command}, header: {"VIN": this.vehicle_data.vin}});
+        let result = await this.client.api_post("v1/global/remote/command", {
+            json: {"command": command},
+            header: {"VIN": this.vehicle_data.vin}
+        });
         return result.returnCode === "000000";
 
     }
@@ -893,7 +922,7 @@ class ToybaruClientVehicle {
         }
         if (status.occurrenceDate) {
             let now = new Date();
-            if ((now - this.last_status_timestamp )> this.client.configuration.refresh_interval){
+            if ((now - this.last_status_timestamp) > this.client.configuration.refresh_interval) {
                 await this.refresh_status_request();
 
                 // Allow the widget to refresh again after 20 seconds.
@@ -919,8 +948,9 @@ class ToybaruClientVehicle {
         if (ev_status.vehicleInfo && ev_status.vehicleInfo.acquisitionDatetime) {
             // Request updated status from vehicle if data is stale.
             let now = Date.now();
-            if ((now - this.last_ev_timestamp )> this.client.configuration.refresh_interval){
+            if ((now - this.last_ev_timestamp) > this.client.configuration.refresh_interval) {
                 await this.refresh_ev_status_request();
+
                 // Allow the widget to refresh again after 20 seconds.
                 this.next_refresh = Date.now() + 20000;
             } else {
@@ -929,6 +959,14 @@ class ToybaruClientVehicle {
             }
         }
         return ev_status;
+    }
+
+    async get_status() {
+        let status = new VehicleStatus(this)
+        await status.init();
+        // console.log(status._ev_status);
+        // console.log(status._vehicle_status);
+        return status;
     }
 
     async get_charge_info(property) {
@@ -1055,6 +1093,7 @@ class ToybaruApp {
         let tokens = {}
         if (Keychain.contains("subaru_tokens")) {
             tokens = JSON.parse(Keychain.get("subaru_tokens"))
+
             this.client.auth.tokens = tokens;
 
             if (tokens.auth_code) {
@@ -1148,38 +1187,427 @@ class ToybaruApp {
     }
 }
 
-async function createAccessoryWidget(options){// Create Widget
+class VehicleStatus {
+    _vehicle_status;
+    _ev_status;
+
+    constructor(vehicle) {
+        this._vehicle = vehicle;
+    }
+
+    async update() {
+        this._vehicle_status = await this._vehicle.get_vehicle_status();
+        this._ev_status = await this._vehicle.get_electric_status();
+    }
+
+    async init() {
+        if (!this._vehicle_status || !this._ev_status) {
+            await this.update();
+        }
+    }
+
+    check_values(category_name, section_name, value_name, compare_to) {
+        return this._vehicle_status.vehicleStatus.some(category => category.category.includes(category_name) && category.sections.some(section => section.section === section_name && section.values.some(value => value.value.includes(value_name) && value.status === compare_to)));
+    }
+
+    some_properties(properties) {
+        return properties.some(property => this[property]);
+    }
+
+    get value() {
+        return this._ev_status.vehicleInfo.chargeInfo.chargeRemainingAmount;
+    }
+
+    get door_unlocked() {
+        return this.check_values("Side", "Door", "Unlocked", 1) &&
+            this.check_values("Side", "Rear Door", "Unlocked", 1);
+    }
+
+    get door_open() {
+        return this.some_properties(["door_d_f_open", "door_d_r_open", "door_p_f_open", "door_p_r_open"]);
+    }
+
+    get door_d_f_open() {
+        return this.check_values("Driver Side", "Front Door", "Closed", 1);
+    }
+
+    get door_d_r_open() {
+        return this.check_values("Driver Side", "Rear Door", "Closed", 1);
+    }
+
+    get door_p_f_open() {
+        return this.check_values("Passenger Side", "Front Door", "Closed", 1);
+    }
+
+    get door_p_r_open() {
+        return this.check_values("Passenger Side", "Rear Door", "Closed", 1);
+    }
+
+    get liftgate_open() {
+        return this.check_values("Other", "Hatch", "Closed", 1);
+    }
+
+    get window_open() {
+        return this.some_properties(["window_d_f_open", "window_d_r_open", "window_p_f_open", "window_p_r_open"]);
+    }
+
+    get window_d_f_open() {
+        return this.check_values("Driver Side", "Front Window", "Closed", 1);
+    }
+
+    get window_d_r_open() {
+        return this.check_values("Driver Side", "Rear Window", "Closed", 1)
+    }
+
+    get window_p_f_open() {
+        return this.check_values("Passenger Side", "Front Window", "Closed", 1);
+    }
+
+    get window_p_r_open() {
+        return this.check_values("Passenger Side", "Rear Window", "Closed", 1);
+    }
+
+    get window_f_open() {
+        this.some_properties(["window_d_f_open", "window_p_f_open"]);
+    }
+
+    get window_r_open() {
+        this.some_properties(["window_d_r_open", "window_p_r_open"]);
+    }
+
+    get blower_on() {
+        return this._ev_status.vehicleInfo.remoteHvacInfo.blowerStatus === 1;
+    }
+
+    get plugged_in() {
+        return this._ev_status.vehicleInfo.chargeInfo.connectorStatus > 2;
+    }
+
+    get charging() {
+        return ![12, 45].includes(this._ev_status.vehicleInfo.chargeInfo.plugStatus);
+    }
+
+    get remainingChargeTime() {
+        return `${getTimeDifferenceDescription(Date.now() + this._ev_status.vehicleInfo.chargeInfo.remainingChargeTime * 60000)} left`;
+    }
+
+    get remainingDistance() {
+        return `${this._ev_status.vehicleInfo.chargeInfo.evDistanceAC} ${this._ev_status.vehicleInfo.chargeInfo.evDistanceUnit}`;
+    }
+
+    get nickName() {
+        return this._vehicle.vehicle_data.nickName;
+    }
+
+    get lastUpdated() {
+        return getTimeDifferenceDescription(this._vehicle.last_ev_timestamp);
+    }
+
+    get_status_values() {
+        let descriptors = Object.getOwnPropertyDescriptors(Object.getPrototypeOf(this));
+        let getterFunctionNames = Object.keys(descriptors).filter(name => !descriptors[name].writeable);
+
+        let status_values = {};
+        for (let name of getterFunctionNames) {
+            status_values[name] = this[name];
+        }
+
+        return status_values;
+    }
+}
+
+async function createSmallWidget(options) {
     let widget = new ListWidget();
-    stack = widget.addStack();
-    image = await draw_meter(options);
-    console.log(image);
-    stack.addImage(image);
+    widget.setPadding(10, 10, 10, 10);
+
+    options.backgroundColor = "#01478E";
+    if (options.backgroundColor) {
+        let color1 = new Color(options.backgroundColor);
+        let color2 = new Color("#121C3B");
+
+        let gradient = new LinearGradient();
+        gradient.colors = [color1, color2];
+        gradient.locations = [0, 1];
+        widget.backgroundGradient = gradient;
+
+        widget.backgroundColor = new Color(options.backgroundColor);
+        widget.addAccessoryWidgetBackground = true;
+    }
+
+    let stack = widget.addStack();
+    stack.layoutVertically();
+    stack.setPadding(0, 0, 0, 0);
+
+    let header = stack.addStack();
+    header.layoutHorizontally();
+    header.spacing = 10;
+    header.topAlignContent();
+    header.size = new Size(0, 25);
+
+    let header_logo = header.addImage(Image.fromData(Data.fromBase64String("iVBORw0KGgoAAAANSUhEUgAAAOEAAAB5CAYAAADPhkZUAAAeF0lEQVR4nO2dd7glVZXof5ugRMk0dIBumgwqIIigjGIOOPr5cAyj4DPM+MyOw4xxzI4zOqYZ9XM+faZxFMMz64hiQIICTZLU0kBD0zln6MDv/bHqcG7fPvdUnXOqTp1z7/19X30nVu21q2rV3nvtvdZKTNJ31H2AvYEDgP2BRwAHAQdm7w8c8f0+2ese2SvZd3sAjjp0ArYA67L364D7gbXApuzzGmBl9n519n5N9p81wIaU0vqSqzxJG1LdAow31N2Aw7JtJjAdmAVMBaYRynYwoUgPq0fKMdkKbABWAKuA+4BFwHxgAXAPsBhYklLaWpOM445JJewSdQ/gSGA2cAJwXPb+SGAKoWTjkY3AUkIh7wRuz7Z5wD0ppftrlG0omVTCAqj7AscAj862RxEKNxXYrUbRBoltRKt5J/An4HrgJuDPKaUNdQo26Ewq4SjUBBwNnAqcmb0eDxxep1xDzCLgNuA64Grg+pTSnfWKNFhMKiGgHg88HngCcAZwLLB7rUKNXx4A5hIKeRlw5URXygmphOo04CzgXELxTqTebuUWYDOwfsTWsGZuyrbN2badMJ6Mde0E9iIeIg8H9sw+701YV/eiaXHdN/v94RXUqSgPALcAlwO/Bq5KKS2rUZ6+M2GUUD0FeCrwLKK127dPRa8lLI0LCYPGvcASwsq4lJgmWJX9bzOwOaX0YJUCZV3uPbNtP2JK5ADCoHQ4Ydk9InttWHQf0fJg5bMKuBL4H+DXKaXb+lRubYxbJVR3BR4HnEco3qMrLG4zTVP+XUR3606aJv1VKaUtFZZfGerDCCU8nJhqOYrors8mpmCmUl1Luh24BvgJ8POU0nUVlVMr404J1bOB5xHKd2IFRawA7iC6UDcBt2afF6WUtlVQ3sCSKeg0wnJ8EvGgO5lQ1AMqKHIO8H3ghymlmys4fi2MCyVUjwPOz7ZTSjz0ZqJVu454It9AmNxXlVjGuEM9hLAonwY8lrAwH015xq7twBXAtwiFXFTScWthaJUwm7s7D7gAeDLlrD5ZT8xxXUVc5OtSSvcUkGUmsCyltKkEGcYd6i6EEp5OWKHPInopZXRjVwM/Bb4G/CqlNHop3yRlo56k/qt6j72zTb1e/ZT6PHVqF/IcqK5VP1pFfccr6mz1AvWr6l0lXEuza/lmdUrd9RuXqM9Uv69u6fFCrVR/pL5BPakEuc7LjvuHMuo5EVH3UM9S361eXsI1Xq5+Vq3SGDcxyC7OK9Q/9nhRFqtfU1+kHlqyjP+WlbFWPbjMY09U1GPV16uXqJt7uO7b1e+pT6q7TkOHuo/6RvW2Hi7ASvW/1ReoVVjqGrJeO6LMZ1RVzkRFnaW+Sf2dMXzolkvUZ9ddn4FH3ctQvnldnuit6i/VV1pyizeGvEeq948o/8NVlzmRUR+lflC9tcv7Q/U36tPrrsvAoe6uvtbulW+e+iH15D7L/bJRclzWz/InKtn98hz1YnVDl/fMT9Un1F2XgUD9X4ZVqxv+Rz1f3bMm2b8ySp61xhzZJH3C6K6+V72zy3vo6+qxddejFtQz1J93cdI2qF9SH1uz/LuNceHPq1OuiYq6t90b8dar71P3rrsefcGYV/uEnQ+yVxjzg0fVXQcA9fQx5Px03bJNdNTnqpd2oYy3qy+oW/5KUV+s3t3hiVliPKU6nkivEvUdY8h7Y92yTRKoT7W73tY31SPqlr9U1OnGILoTVhnGloEcYxlWtlZsdaKOMQYU9eltrtdYLFdfXbfspaD+tTFZXpStxmqHI+uWfSzUQ41xxFj8bd0yTrIzxmKNmztUxu+oh9Ute1eoj1C/2GGFf6I+pm7Z8zAWALTjB3XLOElr1IerFxk9raLcqz6nbtk7wrB8dvLE+bP6orrlLor6hZz6rFT3r1vOScZGnan+Vwf3qOoH6pa7EOpr7Gy938fVfoVO6BljaqLIooK/rFvWSfJRn280AkX5qQNqp0BN6r93UJnr1XPqlrtTjFa+CP+3blknKYa6n/q5Du7dP6un1S33DqgHqD/roBKfsKZVLr2ifrhgHRere9Ut7yTFMVrFBQWv71oHZWGG0be+oaDgC9Xn1S1ztxitfSeLh59bt8yTdIY6zehyFmG7+qq6BX6kxSfff63OqFXgHlHP7kABVb9dt8yTdIf6/g6u89vqEvJ0YzVLET5txBkZaux8ymWDk6EWKsMYBlW2MMJwLlhb8Fq/uyo5xhLuFIvPs7yhr8JVhHqwuqZDJVT9h7plH68YC/k3GvkeqyrjNIt7aLyrKjlGC3WCxVbAbFSf3xeh+oDhLtMN8400apOUiDFV1Aj29cSKy5quzil4vV9fpSyoUy0WGWu1Qzj9MBZZvVd3pHo78k9112G84Y5eLO/rQ3n7GyE2ivBXVQmxtzvGUxmLJerplQhRE3Y2/dKKB9Qz6q7HeEJ9+4jze0WfytzDCJ+Sx/1GJPjSBfhugcJXOf4U8NMdKtxY3KvOrrs+4wX1t6Nu+r4s+DfiIF1R4HovVMvLaWnEg8xjs+OrC3qgEfqgTBaoT6m7bsOOMTzYNOrc9s3tyOia3lTgev/WyIDVc4HnFrzBxoVHsnqQ+jo7dz7uhC+pj6q7rsOKemGLc/rDPstwpMUMlL1F4DM0/t4CBf19SXXrO+rD1OPVlxst39IC9S2DbcZA/z2GB/i0us/FsGDrFS3r7EOYy1FyPN4Y7+fRtofYtqlUvwJcmCPLN1NKL+1Q/lrILtJRRCqvRxLpvI4j8uztWp9kQGTfnU/kNbw92+Zn2/KU0sa6BBsk1KOJtHStEgBdlFL6eJ/leR3w2Zy/zQVOSSnd3+rHMZVQfRpwSc7B7wBOHaQbRN2PyDg7i1CuYwmlOwqYTmSmHSYeAJbRTEK6gFDU+4isvyuAFcOahLRTjG7nWG5iK4AzU0p39VEk1G8Bef6wH04ptVxV01IJ1d2BG4ET2hz0QeCclNKVRQQtC8Mz4RBC0Y4gFGs2MINQuinAocDQL5MryHri5ltKKOZCmhmCFwDLCSVeV3Ua7ipRjwE+ALw45693AX+bUvpV9VIF6oFESr12wcjuBx6VUrpj9A9jKeGbgLzQfR9PKV1UVNAiGHEfGy3ZoUQW2KmEok0ncqgfRuRYH0pXqBrYRuTwW0Uo6FJCSRcRLWlDeVemlDbXJWQDY43xwcQDdibREJwFPInOrvmVwGVEdt+5wD0ppXVlyjoSwzD5vZy/fSeltNNE/k5KmHXn5hKKMBbzgZM6SYppJPXcPzvuYUQO9COy9zOI1u3Q7D+VrQWcpCWbiBaz0XrOB+7O3jcUd9VYY5pOUR9OKNpU4EhiqDCL6NFMy7ayhw1LiYfO3UR3fl72eT4x5l7bawHqj4A897XHppSuGflFKyX8B+Bfcg70kpTSt0bt11CmRot1BKFo02i2XgcCk+soh4+NRJd2JaGUi2l2fZcR3eF1RJcLwsi1F3AQzYfuTOJ+mEk8bKdk/6mbbYT8S4gewr2Egi7IPt+TUlpZ5EBG2vabaJ81+nsppfNHfrGDEhoLjW8nnk5jMSeltMOqGCOo0d1EKzbJJOOJO4he39Yif1a/CLRz9N0GnJxSmtv4YrdRf/hL2isgwIdafLcBeAvRf59Oc0x3CPAIYGLE+J8YbADWEt3XFdm2Mvtu+4j/7UN0ORvDjCnAAQxG6zcWm2i29ouIhuXaogqY8VHg5YzdGu4GvBp4yJ4yuiW8BHhamwJuI7S4kJUtM7QcSLNbMo2mVbMxLjyEuDiVJfKcpBDbCUVaQ7N7tpzonjXGio3vVndiD4CHrNoHEwo5nabh5QiaQ5cpwO69V6UtG2l2Pe8h7B/zCYVbTIwPexr7qhcD7TwpFgJHN8p5SAmNBbBzgYe32fnvUkqf7EXA0ai7EYp6AHERDs+2I2kabRpK/Ajqn1QfVjYR47flNA0u89lxbLcaWJNS2tZv4TIlPYy47rOJRRTHE/O8s+nuut8N3ArcnL3eQdR3cZV1NNJz/ybnb89MKf0CdlTC1wP/0WanzcAxKaWFvQrZKZnZutGiNgw/RxEt6yyainsAE1dJ1xNdqYbRZD7RijWmI5YQFs7apyE6Qd2VUMQXAG+nmOX8u8AngevKsuh2Qna/3ko8SMbiCyml18KOSvgToF2o70tSSgObkz0zDh1OKOlRRFfnGOLJOoP2Uy7DwIM0pxEapvb5xOT0IqI1W13HTdcv1LOAX9LexvCxlFLtIUXUjwHt1lTfAZyQUtqesh32IeZO2i2AfWNKqV1LObAYEb6nEcp5LPGEOo5oRWcwWKtr1hAKNY+4JndkrwuARVVOOA8DRij694zx8w0ppVP7Kc9YqOcCv27zlweJFTS3NHY4M2cV+HbHoeuNuqfhQfFX6uftPuVyL1yflf0q9XEOSXQ2dRd1Vg3lTnNnX8IGf9NvecZC3ddIr9aOC0fu8OqcP99rrHIY1xjhC16g/r6I9vTAQvWD6sl117lb1JcZjtyn1FD2JS3O6SYHzB3M/JyIn4RmN6zdQm2AuSmlB6oVuX5SSvenlP5fSukc4A2EMapsPg88OqX0npTSzRUcv188n1j99Owayv5Ri++ursNomMNNOb8fC00lnJnz53m9SjNspJQ+CzyTmDsrizenlF6XUlpR4jH7jjGd8Pjs41NrEOFSdlwYAPDzIjsaqbAvLl+kluzkMTGK6Q+9Uy/PaTbfWa2sg4sR3mNL0X5mGz5Sd13KQv2LEfVab5/HsUZOkFtGnd/cAGNGpIitho3joD7I+fyce+I+dc9GS5g397K8aoEHlZTSb4De4oREt6S/YdKrZeRU1T7Ak/tZeEpJYGSYw3vJ7/oBnE0sG9uFcI+qmrwez17AvrsYk6F5ng0Twmu7DR8l5uW65T3D7FDbgmeN+lxHKunLR7y/umBkgZFy96MbnbfmdFdg112yN1Wv1xtqMqNUnpPzWNwK/LhEcWpFPZ6IzzOSJ9v/fJPX0hwX/iHvz0bowZGK93TLCEfYGwLukj1B8hbj1i3sIPANwmeuU76SdZ/GCy9kZ++bw4F+x1OdRyxqgPCez+M0Yi1qg4bHfpUUWgTS+FPeUqcJ7yeYWTR/2eFuW4h1jOMCY7H9K8f4+bX9lCVrPBoBnW4tsEsruaue3N835/cHgM0NJVyV8+fDepdnXJAXQ2Q016aUehlLDhrvZOzprOeoY0VBq4qPAe9OKS1r9yd1OnBBi59eaLXh8/PC4K8jFt4XSn75rfbHmhiohxmJP4syLiyixhKs9xSo7wZj+d3AeLKoj1AvbSPz79RKfFnVD+Scr8ug2bfPm4yvLBvqMJFSWqLOAf6i4C6XVilPVWQ35VGEAeZs4OnkR1yA8G74IvBW9efAVURX8d5OnYB7wTASHUNcpzfQ3qXoL4Br1M8QPoB3lijriTm/3wVNJfxTzp+PUQ9LKS3pWazh51KKKeEi4IaKZekKw+3rAJrRDRoxW2fRdP3qZTL7pGyDsGAuUu8knMZvBf5M5oKVUtrQQzmoDyNkPxE4FXgMcDLFHhoNZtO0fi9Q542Q9Y5M1sUppfUdyLUrkOf08CfYUQkfYGyv+n0I69LPigoxjvltwf9dXZcDrRHufwqhTNNohpGYQbirNSLf9WNqates3BlE7NAG24HF6kKaLlt3ES5bS4nx0kYiMNIuRCu7f3acWTTd0Y4j6jbaYtstDVnPHSXrUnVRJuN84kEyP5P3nhZrq48lehPt2NGqq96Q03/9VLe1Gk9YzEVF9a01yfePBWQbFrYZCVe21i1IDvc4alypvj5nn5VGj2SHp8fvgEe3ub7PUt+WUhq9cHZCkVJar15HjJPacXnO71VxFfBVogVsRLzbn+GIWL6KiHOzhHBuXkNz1cmeROs9JdsOorzWr1MeIJakLc62Oew81/68nGP8MaW0BnasxA+BN7XZ6VhikP77TqQdp/ye9kq4iAgu1HdSSpcR4d+Bh6ImNEIPTiNW7s8kxkyNYFqH0j7AV5mspJncZj7RFb2LZv6M1XlBmIxICY1AwicRBqSTgaMpd057GdHdbIwR78rkXQQsHSsRkjqTfLvBQ6uoRirh5cSJaDegfRWTSgg7Lh5uxZxBCaiUGT4aadeuGf274ZbUCEM4k7iRZ7FjIK1uuZtILHQj8VC6A1jYqytXFuJjHaEYv2h8b3hznAicDpxJuFsVneNeQSyFu45YDN7IX7G6CxEvoP1D7X7gJy1/UT+W049db5l5uIcUI5X26jbn6R/rlrEMjEgDj1T/SV2Tc280WK5+RD3dmqMxZNfpvQVkfp8lJRjNzlleYt3WCpgd4HjzB8EfLEPYYUe9rM05emLd8pWNeqLh/9aOP6hH1C3raNT3t5G51AUV6t/knCPNW1mk/ijnAKvsc1riQUT91zbnZ1xGE1ef3ea+WO2AxXhpYLROi1rIfJ+Ri7PMcu7O0Z/bzFtRpJ6VcxDVoQx9WCZGQKhWXJa/9/BitHat+EzdsrVD/VwLmf+z5DLeXkB3/nfRg/0s50BbrSHK1iChzjLmsEbziT6U/Vr1XVWXM0bZfz/GPfGEOuQpiq1b8bxphE6OP0Ndl6M3cy3a8qqnGHE42pFnIRzXGHE357Y4Ly+suNxd1WVZWXmuMlWU/9gWdV5sB069RoyY04xw8X3BnY1pa9WDSzx+3jBONS/V904H/XyBg9YebrxO1ItHnY8tRm71Kss8bUR5/XakbQRMHm2g+UGHx3hatl9fwyWqvx0hc17Clk6O+8oCuvK7sfZv9yR6B7FyoR0fVs/sSvLxwbWjPi+gt1g0RXjmiPd9zw2SzX/+cdTXnY6DG3Xod8zSkXKWooRGuI+80CdbCW+Orgo4v4CG3+k4tQbmoT5l1LloFZS27DJ/N6K8Wrw01DeNqndHYSLUOdl+t9rfLumTR8jcc4Q4o1dwYwEdGSt3RuGCvlygkAnpXeHOTr7vr7i8w9WNI8rbZjyJ+4o7WtCX2cHYVJ1p06C13T6mAlAPMkL3P2AJ40H12wV044/26uSs7qPeXqCwz/ZaqWHEHZ+Ez6+4rJe3OO8X5e9Zuhz7qSuy8ttlHmq17+jx0xurknOM8m9RbynhOB8toBPrLMtGYFhLN+YUqPreUgocItSvZ3XfqlYagcDWFrirqyyzjSyNbvHHOtxvdB06DZ7VE+pxvV4n9aICuqBlW8rVFxUs+C2lFjzgqG/N6j3f8PKuqpwjjK5UKx5bVblt5Pl4pzearWP0PKAeXaWsZaK+paAeVLO8U31nQQH+rhIBBhCbg/2OumVdlPOlNue778GF1ceoP7WDJYyOHSzq81XKWhYWV8BvVi3IfxQUpDeL0JBgDPbXqO+rsIwLC5zvvsb97BT1UcYEeSu2qOfULWM71HcUvO9/ZYnrUdsJ9NWCAg30esKyMJYsle62o56g/lvBc6367+pJ+UfuH4YR50J1SY7sa9Q3OICucuonC57/Kw2H447oOry9+g3gpQX++gPgwomea70dRpfuMMKR9njCW/zRhINqp+bt7cAthGPqnURAonlkAZSqTExjONXOIurwSJoe750o1lpC9puzbR7NaGctPdmrwph6+RqREDWP64GnpZRWdlpOTzkm1C8Dryjw1xuAl6WUejYNDxuG5/ohRHyUw2mGGGxEP5tGKGDVCx7WE2EZ7sq2RriG+TTDSuTmzDCMT1MIT/xjCIU7Lns/g2pSJmwjVm8tIlYk3UM8YO7LthXAqpRSXjqHwqgnEvlHijgqXAmc16UXfu+JXowobG8u8Nc1wGtTSv3KktpXspvzRUQMyyOIG3UqoYAHELnoBpUVRA7K+4i4KkuJgEtbiLR5B9OMUTqdqNPetUjamvXE/bWckH058WD5ejcPfvUlwOco9kC5BDi/k5iklaC+q4Nxy6fUvHyIQ4cxLpxksHhNh9dwT/UzHRz/v4wkOT1RWsoz9a+B/6TYE38O8PqU0uiFwEONehTREs4gWsEjiCBK04ju6EHAfrUJuDOriJbjHiLb7Tyi27eEaAkb4S0bXdDDiXFrY5tKfcmCNhEt3gpC9oVE9/o+oj5LUkr3Fj2Ysf71cxTrfgJ8OKVUSmiMUvMOqo8j+tF5kYchVpZ/BPhQXoi78YBhtj6I6JpOzbaZhKIeRXTzppKfurxTNhFjqZGh+xphBhenlLpOha7uRyjm7Gw7jgiNeSRRn15inT5IMzzivcRYsDEebETpXt7rONAYRryb8Boq0qptBv5PSumrvZQ7ktKTfxoWsi8C5xXc5VrgopTSb8uWZZjIujWHEop5HHAGEbuy0ymH24lAztcSCnc3YRXNS91cGtkDp9Fqnk4kFi2yqmce8C3gapq5KroydhSU8ylEerVTC+5yO3BBSmmn0JEDicVSaY3kC+rUuuUeJAzv/RebHzZBYznYK+zHRHEXqP+cI//FRqDifsgy3fYrkFrxDbOw9UOF+iTDZ6woS9W3WXO8ykFDfYb54UYq9eAoA2M1SStuswQDR4Hy9zRydRTJJdJgrQO+GikXI0ljkVAZI7nFMPRMkmE8icfih3XLVwT1nDHkb5VFt+yyL7CYS95IfqmeULVsfcOIdtVJq6h6lSVGxBpmbB98a6DXXY5EvXmU7MussBtqhKa8usP7bp01ZdWqHHVvwxlyS4cn5ffq+XXLXzfZeRjNXPsYIqJX3NkZ9usVlJEM17srOrzPVH+otsvsOz4wIoblxTZtxRz11fZpAD9oGAucR/PxuuXqBPXcUfK/qMRj76O+Rr2ui3vrdisOVzmQqC9U/9TFCbvLsL52khJ56DG8KraNOhfPzN9zcMgUZWkm+wa158l+9cjsfri7i3tpdbbvIC3D6y9G/P43qwu6OIHrjKVDfY+/WQdG4N95I+q/3iHMC6L+OJN/zFicBY/zZCO8SJEpnNFsMabFZpZUreHHZhqrpe3OXBvmGLE/iqzWGVrU74yo81DmvbAZSv99Xew7y5jGmmP3fFNtl5V6YqNOUT9gvhPoWGw0nrQvVw+puz5lYzOmjeo/1y1PNxhe9nMtmM/EiF7wEvUH7hyjpijbjQUBfY/HM7SohxhZbu7q8qRrhOW72Fh1MnTdtlaojx9Rv+fWLU+3mLOyx+gZvdCYH+22d6S6yYidW3Rp2iSjMQbyr1av6eFCqK5Uv28kcZxdd726Rd3fWMWxTZ1RtzxlYkSUu9B4cHbbE2qw2Mg8XWkYyjIofQF3lajPAF4FPJdwNu2W+4nc5JcSOQmuSymt7V3C/qDeBhySUiotq1AdGJmcTgWeBDyFWOTd6/TT9cCXgf/uJtREHQyVEjbInm4vBV5MeBz0yhLgGsL74Arg5pTShhKOWwnq04E9UkqV574oE6MLegJwNuEhchbhNdIr64GfAF8FLikSpmOQGEolbGD4gj0NeAnwLMJxtgwWAjcSLjXXEEpZ2EF0kkA9iFC6M4AzgdOIWDRl8Qfg28D3hvn6DLUSjsTwY3wO4bv2RHpzKB3NJsK/7UYiaNVNhK/ewongkFwEwxI9m4iwdioRLe44wpG5TG4Hfgx8N6VUSwqAshk3SjgSY67wOYRj8dmU760OMa68jwgpOJe4Of5MeH0vTiltqqDMWjHWqB5ChOs4JttOIrzpZ1JeT2Q0dwA/J8JnXt5PB+V+MC6VcCTG0ranEokpzyFipVTJFpqRyxYQIQUXECEalmS/rQQ2DtrNZATg2pc4R4cQsXKmEx7yM4iwFVOoJqzhSB4keh2/AH4KXJ1S2lJxmbUx7pVwJEYy07OIceQ5RGDafjsQP0AYElYTyriGCFa0ggh8uyZ7XUd0gzdn25bslez77bRmFyLYViK65A/LXvfKtv2JYFP7E/FuDs62/Ue81hGMaikxxvsl8JuU0q01yFALE0oJR5PNF54NnAs8juhW9ZbQsVoaircNaGcBbEyED3JdVhKt3RVEGus5VcaTGWQmtBKOJBvvNAIsnQU8JvvccW6BSVpyH2HQ+iNwFXB9SmlFvSINBpNK2AYjOcmJRCzKM7L3s6jG0DOeWE5ETruRiPp2PTC337kkhoVJJewQdRpwNDH/9UiitZxFhPgrc1pkGFhDxAW9E7iVSOByC3B3SmlNnYINE5NKWAI242w2LImzCcWcSVgTpxDd2kEeo7ViG2FAWkZ0J+8lpgvmE4q3MKW0tDbpxgmTSlgxaiKsjo3I24fQDB9/EBHw90BCSffNtj0Iq2bZltsHaFpZ1xMW2PWEZXYZYSxZnG3LstdVE9Vg0i8mlXCAMOKt7pFtexNTCntmn3fPPu9OWEb3IcK2j7SSPgg01rxuJaYythILCzZnnzc2Po/nubdh4v8DdbWivpaBu+gAAAAASUVORK5CYII=")));
+    header_logo.leftAlignImage();
+    header_logo.imageSize = new Size(30, 30);
+
+    let nickname_label = header.addText(options.nickName);
+
+    nickname_label.minimumScaleFactor = 0.3;
+    nickname_label.font = Font.mediumRoundedSystemFont(14);
+    nickname_label.textColor = Color.white();
+    nickname_label.centerAlignText();
+
+    header.addSpacer(30);
+
+    stack.addSpacer(3)
+
+    let status_row = stack.addStack();
+    status_row.layoutHorizontally();
+    status_row.centerAlignContent();
+    status_row.size = new Size(0, 0);
+    status_row.spacing = 5;
+
+    let status_column_1 = status_row.addStack();
+    status_column_1.layoutVertically();
+    status_column_1.centerAlignContent();
+    status_column_1.size = new Size(25, 0);
+    let status_column_2 = status_row.addStack();
+    status_column_2.layoutVertically();
+    status_column_2.centerAlignContent();
+    let status_column_3 = status_row.addStack();
+    status_column_3.layoutVertically();
+    status_column_3.centerAlignContent();
+    status_column_3.size = new Size(25, 0);
+
+    let image = await draw_meter({
+        label: `${options.value}%\n${options.remainingDistance}`,
+        bg_opacity: 0.5,
+        show_car_status: false,
+        show_car_icon: false, ...options
+    });
+
+    let status_image = status_column_2.addImage(image);
+    status_image.centerAlignImage();
+    status_image.applyFillingContentMode();
+    status_column_2.size = new Size(0, 0);
+
+    let {column_1_options, column_3_options} = Object.keys(options).reduce((acc, key) => {
+        if (!["charging", "plugged_in", "blower_on"].includes(key) && !key.startsWith("window")) {
+            acc.column_1_options[key] = options[key];
+        } else {
+            acc.column_3_options[key] = options[key];
+        }
+        return acc;
+    }, {column_1_options: {}, column_3_options: {}});
+
+    populate_status(status_column_1, column_1_options);
+    populate_status(status_column_3, column_3_options);
+
+    let status_text_line = stack.addStack();
+    status_text_line.spacing = 15;
+    status_text_line.layoutHorizontally();
+    status_text_line.centerAlignContent();
+
+    let status_text_1 = status_text_line.addText(status_column_1.description || "");
+    status_text_1.font = Font.boldRoundedSystemFont(10);
+    status_text_1.textColor = Color.white();
+    status_text_1.centerAlignText();
+
+    let status_text_2 = status_text_line.addText(status_column_3.description || "");
+    status_text_2.font = Font.boldRoundedSystemFont(10);
+    status_text_2.textColor = Color.white();
+    status_text_2.centerAlignText();
+
+    stack.addSpacer(3);
+    let footer = stack.addStack();
+    footer.layoutHorizontally();
+    footer.bottomAlignContent();
+
+    let footer_text = footer.addText(options.lastUpdated);
+    footer_text.font = Font.lightSystemFont(10);
+    footer_text.textColor = Color.white();
+
+    return widget;
+}
+
+async function createAccessoryWidget(options) {// Create Widget
+    let widget = new ListWidget();
+
+    if (options) {
+        if (options.backgroundColor) {
+            widget.backgroundColor = new Color(options.backgroundColor);
+            widget.addAccessoryWidgetBackground = true;
+        }
+
+
+        let stack = widget.addStack();
+
+        if (config.widgetFamily === "accessoryCircular") {
+            let image = await draw_meter(options);
+            stack.addImage(image);
+            stack.setPadding(0, 0, 0, 0);
+
+        } else if (config.widgetFamily === "accessoryInline") {
+            options.show_car_icon = false;
+            let image = await draw_meter(options);
+            stack.addImage(image);
+            stack.setPadding(0, 0, 0, 0);
+            stack.layoutHorizontally();
+            stack.addText(options.nickName);
+
+        } else {
+            let row = stack.addStack();
+
+            let image = await draw_meter({show_car_status: false, show_car_icon: false, ...options});
+            row.addImage(image);
+            row.spacing = 1;
+
+            let column = row.addStack();
+            column.layoutVertically();
+            column.spacing = 4;
+            column.topAlignContent();
+            column.size = new Size(0, 60);
+
+            let header = column.addStack();
+            header.layoutHorizontally();
+            header.centerAlignContent();
+            header.spacing = 3;
+
+            let status = column.addStack();
+            status.layoutHorizontally();
+            status.centerAlignContent();
+            status.size = new Size(0, 18);
+            status.spacing = 1;
+
+            let updated_text = column.addText(options.lastUpdated);
+            updated_text.font = Font.lightSystemFont(9);
+            updated_text.lineLimit = 1;
+            updated_text.size = new Size(0, 9);
+
+            let icon = SFSymbol.named("car.fill").image;
+            let header_icon = header.addImage(icon);
+            header_icon.imageSize = new Size(15, 15);
+            header_icon.leftAlignImage();
+
+            let nickname_label = header.addText(options.nickName);
+            nickname_label.minimumScaleFactor = 0.5;
+            nickname_label.font = Font.mediumRoundedSystemFont(9);
+            populate_status(status, options);
+
+            nickname_label.lineLimit = 2;
+        }
+    } else {
+        let symbol = SFSymbol.named("person.crop.circle.fill.badge.xmark");
+        symbol.applyFont(Font.systemFont(100));
+
+        switch (config.widgetFamily) {
+            case "accessoryCircular":
+                widget.addImage(symbol.image);
+                break;
+            default:
+                let stack = widget.addStack();
+                stack.addImage(symbol.image);
+                prompt = stack.addText("Please login to Solterra Connect.");
+                prompt.minimumScaleFactor = 0.5;
+        }
+
+    }
+
     return widget
 }
 
-async function get_vehicle_widget_values(vehicle) {
-    const vehicle_status = await vehicle.get_vehicle_status();
-    const ev_status = await vehicle.get_electric_status();
+function populate_status(container, options) {
+    let icon_count = 0;
+    let description;
+    const icons = [];
 
-    const check_values = (category_name, section_name, value_name, compare_to) => {
-        return vehicle_status.vehicleStatus.some(category => category.category.includes(category_name) && category.sections.some(section => section.section === section_name && section.values.some(value => value.value.includes(value_name) && value.status === compare_to)))
+    for (let option in options) {
+        if (options[option] === true) {
+            switch (option) {
+                case "charging":
+                    icons.push(SFSymbol.named("bolt.fill"));
+                    description = options.remainingChargeTime;
+                    break;
+
+                case "plugged_in":
+                    if (options.charging === false) {
+                        icons.push(SFSymbol.named("powercord.fill"));
+                        description = "Plugged In";
+                    }
+                    break;
+
+                case "blower_on":
+                    icons.push(SFSymbol.named("fan.fill"));
+                    description = "A/C Running";
+                    break;
+
+                case "door_open":
+                    const doorPositions = {
+                        "front.left": options.door_d_f_open,
+                        "rear.left": options.door_d_r_open,
+                        "front.right": options.door_p_f_open,
+                        "rear.right": options.door_p_r_open
+                    };
+
+                    let open_doors = Object.keys(doorPositions).filter(position => doorPositions[position]);
+
+                    icons.push(SFSymbol.named(`car.top.door.${open_doors.join(".and.")}.open.fill`));
+                    description = "Door(s) Open";
+                    break;
+
+                case "door_unlocked":
+                    icons.push(SFSymbol.named("lock.open.fill"));
+                    description = "Unlocked";
+                    break;
+
+                case "liftgate_open":
+                    icons.push(SFSymbol.named("suv.side.rear.open.fill"));
+                    description = "Liftgate Open";
+                    break;
+
+                case "window_open":
+                    icons.push(SFSymbol.named("arrowtriangle.up.arrowtriangle.down.window.left"));
+                    description = "Window(s) Open";
+                    break;
+            }
+
+        } else if (options[option] === false) {
+            switch (option) {
+                case "door_unlocked":
+                    if (!options.charging) {
+                        icons.push(SFSymbol.named("lock.fill"));
+                        description = "Locked";
+                    }
+            }
+        }
     }
 
-    return {
-        value: ev_status.vehicleInfo.chargeInfo.chargeRemainingAmount,
-        charging: ![12, 45].includes(ev_status.vehicleInfo.chargeInfo.plugStatus),
-        plugged_in: ev_status.vehicleInfo.chargeInfo.connectorStatus > 2,
-        door_open: check_values("Side", "Door", "Closed", 1) &&
-            check_values("Side", "Rear Door", "Closed", 1),
-        door_unlocked: check_values("Side", "Door", "Unlocked", 1) &&
-            check_values("Side", "Rear Door", "Unlocked", 1),
-        liftgate_open: check_values("Other", "Hatch", "Closed", 1),
-        window_f_open: check_values("Side", "Window", "Closed", 1),
-        window_r_open: check_values("Side", "Rear Window", "Closed", 1),
+    let icon_size;
+    if (config.runsInAccessoryWidget) {
+        icon_size = 12 - ((icons.length > 4) ? icons.length - 4 : 0);
+    } else {
+        icon_size = 15;
     }
+
+    for (const icon of icons) {
+        icon.applyFont(Font.systemFont(icon_size));
+        let image = container.addImage(icon.image);
+        image.centerAlignImage();
+        image.tintColor = Color.white();
+    }
+
+    if (config.runsInAccessoryWidget && description && icons.length < 3) {
+        let label = container.addText(description);
+        label.font = Font.boldRoundedSystemFont(10);
+        label.textColor = Color.white();
+        label.centerAlignText();
+        label.minimumScaleFactor = 0.4;
+    } else {
+        container.description = description;
+    }
+
+    return container;
 }
 
-async function draw_meter(options={}) {
+async function draw_meter(options = {}) {
 
     // JavaScript code to create a canvas, draw something, and then convert it to a base64 image
     // Create a new WebView instance
@@ -1191,6 +1619,7 @@ async function draw_meter(options={}) {
         <head>
         </head>
         <body>
+        <div id="logs"></div>
         <canvas id="canvas" width="300" height="300"></canvas>
         <script>
             function draw(
@@ -1202,9 +1631,12 @@ async function draw_meter(options={}) {
                         weight: 25,
                         fg_color: "white",
                         bg_color: "black",
+                        bg_opacity: 1.0,
                         glyph_color: null,
                         label: true,
+                        line_spacing: 2,
                         show_car_status: true,
+                        show_car_icon: true,
                         charging: false,
                         plugged_in: false,
                         door_open: false,
@@ -1226,7 +1658,7 @@ async function draw_meter(options={}) {
               let start_pos = options.start;
               let end_pos = options.end;
 
-              if (options.label) {
+              if (options.label && options.show_car_icon) {
                   // Adjust Car Icon position to below meter
                   car_pos = {x: origin.x - 60 * scale_factor, y: origin.y + 55*scale_factor};
                   car_scale = {x: 0.2 * scale_factor, y: 0.2 * scale_factor};
@@ -1248,8 +1680,10 @@ async function draw_meter(options={}) {
                 let weight = options.weight;
                 rounded_arc(ctx, origin, radius, weight, start_pos, end_pos);
                 ctx.fillStyle = options.bg_color;
+                ctx.globalAlpha = options.bg_opacity;
                 ctx.fill();
-            
+                ctx.globalAlpha = 1.0;
+                
                 ctx.fillStyle = options.fg_color;
                 ctx.strokeStyle = options.fg_color;
 
@@ -1271,7 +1705,7 @@ async function draw_meter(options={}) {
                 let label_origin = {x: origin.x, y: origin.y};
                 
                 // Draw Lock Status Icon
-                if (options.door_unlocked) {
+                if (options.show_car_status && options.door_unlocked) {
                     label_origin.y += 25*scale_factor;
                     let lock = new Path2D("M2.19727 19.1406L11.1328 19.1406C12.5684 19.1406 13.3301 18.3594 13.3301 16.8164L13.3301 10.0879C13.3301 8.55469 12.5684 7.77344 11.1328 7.77344L2.19727 7.77344C0.761719 7.77344 0 8.55469 0 10.0879L0 16.8164C0 18.3594 0.761719 19.1406 2.19727 19.1406ZM10.1855 8.53516L11.7285 8.53516L11.7285 5.24414C11.7285 2.77344 13.3105 1.47461 15.1367 1.47461C16.9629 1.47461 18.5449 2.77344 18.5449 5.24414L18.5449 7.41211C18.5449 7.98828 18.8867 8.28125 19.3262 8.28125C19.7461 8.28125 20.0977 8.01758 20.0977 7.41211L20.0977 5.44922C20.0977 1.77734 17.6855 0 15.1367 0C12.5781 0 10.1855 1.77734 10.1855 5.44922Z");
                     ctx.save()
@@ -1283,27 +1717,49 @@ async function draw_meter(options={}) {
                     ctx.restore()
                 }
                 
-
+                
                 // Draw Label
                 if (options.label) {
                   // Determine correct label string to use
+                  let lines;
+                  
                   if (typeof options.label === "boolean") {
-                    label = \`$\{options.value\}%\`;
+                    lines = [\`$\{options.value\}%\`];
                   } else {
-                    label = options.label;
+                    lines = options.label.split('\\n');
                   }
 
                   ctx.save();
-                  ctx.font = \`bold $\{45*scale_factor\}px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif\`;
+                  let fontSize = 45*scale_factor;
+                  document.getElementById('logs').innerText += "\\n" + fontSize;
+                  ctx.font = \`bold $\{fontSize\}px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif\`;
+                  
+                  //fontSize = fitTextToWidth(ctx, lines[0], 2*(radius - weight)-15);
+                  document.getElementById('logs').innerText += "\\n" + fontSize;
                   
                   // Align text for centering
                   ctx.textAlign = 'center'; // Center horizontally
                   ctx.textBaseline = 'middle'; // Center vertically
+                  
+                  let additionalHeight = 0;
+                  let lineHeights = lines.map((line, i) => {
+                    let font_size = i === 0 ? fontSize : fontSize * 0.5;
+                    if (i > 0) {
+                      additionalHeight += font_size*options.line_spacing;
+                    }
+                    return font_size;
+                  });
+                  document.getElementById('logs').innerText += "\\n" + JSON.stringify(lineHeights);
+                  
+                  let currentY = label_origin.y - additionalHeight/4;
 
                   // Adjust font size
-                  fitTextToWidth(ctx, label, 2*(radius - weight)-15);
-                  console.log(label_origin);
-                  ctx.fillText(label, label_origin.x, label_origin.y);
+                  lines.forEach((line, i) => {
+                    ctx.font = \`bold $\{lineHeights[i]\}px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif\`;
+                    ctx.fillText(line, label_origin.x, currentY);
+                    currentY += lineHeights[i+1]*options.line_spacing;
+                  });
+                  
                   ctx.restore();
                 }
 
@@ -1314,31 +1770,33 @@ async function draw_meter(options={}) {
                     "M 633.1875 204.421875 L 633.1875 204.53125 L 633.21875 204.640625 L 633.265625 204.78125 L 633.375 205.015625 L 633.578125 205.3125 L 633.96875 205.765625 L 634.921875 206.65625 L 636.359375 207.859375 L 637.484375 208.859375 L 638.21875 209.6875 L 638.71875 210.46875 L 639 211.125 L 639.171875 211.796875 L 639.25 212.609375 L 639.140625 213.40625 L 638.890625 214.1875 L 638.5 214.859375 L 638.0625 215.453125 L 637.75 215.78125 L 636.875 216.640625 L 635.015625 218.3125 L 633.03125 219.921875 L 630.953125 221.453125 L 628.78125 222.90625 L 626.53125 224.3125 L 624.234375 225.609375 L 621.875 226.875 L 619.46875 228.0625 L 617.046875 229.203125 L 614.578125 230.265625 L 612.125 231.28125 L 609.65625 232.234375 L 607.234375 233.125 L 604.796875 233.96875 L 602.421875 234.734375 L 598.9375 235.828125 L 594.53125 237.078125 L 590.484375 238.125 L 586.859375 239 L 582.390625 239.96875 L 578.90625 240.625 L 578.359375 240.703125 L 572.25 240.703125 L 573.578125 236.453125 L 574.09375 234.625 L 574.578125 232.59375 L 574.96875 230.609375 L 575.265625 228.671875 L 575.515625 226.59375 L 575.671875 224.65625 L 575.75 222.484375 L 575.765625 221.46875 L 575.75 220.109375 L 575.609375 217.40625 L 575.34375 214.765625 L 574.9375 212.1875 L 574.40625 209.625 L 573.765625 207.125 L 573 204.65625 L 572.125 202.265625 L 571.125 199.9375 L 570.015625 197.65625 L 568.796875 195.421875 L 567.546875 193.328125 L 566.09375 191.1875 L 564.640625 189.265625 L 562.96875 187.234375 L 561.296875 185.390625 L 559.515625 183.609375 L 557.75 182.015625 L 555.71875 180.34375 L 553.703125 178.828125 L 551.71875 177.484375 L 549.5 176.140625 L 547.234375 174.921875 L 544.9375 173.8125 L 542.59375 172.8125 L 540.328125 171.984375 L 537.8125 171.203125 L 535.359375 170.578125 L 532.6875 170.03125 L 530.109375 169.625 L 527.578125 169.375 L 524.78125 169.234375 L 523.484375 169.21875 L 522.203125 169.234375 L 519.40625 169.375 L 516.875 169.625 L 514.296875 170.03125 L 511.625 170.578125 L 509.171875 171.203125 L 506.65625 171.984375 L 504.390625 172.8125 L 502.046875 173.8125 L 499.65625 174.96875 L 497.421875 176.171875 L 495.265625 177.484375 L 493.28125 178.828125 L 491.265625 180.34375 L 489.234375 182.015625 L 487.390625 183.6875 L 485.609375 185.46875 L 484.015625 187.234375 L 482.34375 189.265625 L 480.828125 191.28125 L 479.484375 193.265625 L 478.109375 195.53125 L 476.90625 197.75 L 475.8125 200.03125 L 474.8125 202.390625 L 473.984375 204.65625 L 473.1875 207.234375 L 472.546875 209.75 L 472.03125 212.296875 L 471.625 214.90625 L 471.375 217.40625 L 471.234375 220.203125 L 471.21875 221.53125 L 471.234375 222.484375 L 471.3125 224.625 L 471.46875 226.5625 L 471.703125 228.640625 L 472 230.546875 L 472.390625 232.515625 L 472.828125 234.421875 L 473.375 236.375 L 474.640625 240.578125 L 404.015625 240.46875 L 290.46875 240.203125 L 217.265625 239.96875 L 180.578125 239.8125 L 181.796875 235.734375 L 182.296875 233.828125 L 182.703125 232 L 183.0625 230.109375 L 183.34375 228.21875 L 183.53125 226.421875 L 183.671875 224.390625 L 183.75 222.421875 L 183.765625 221.46875 L 183.75 220.109375 L 183.609375 217.40625 L 183.34375 214.765625 L 182.9375 212.1875 L 182.40625 209.625 L 181.765625 207.125 L 181 204.65625 L 180.125 202.265625 L 179.125 199.9375 L 178.015625 197.65625 L 176.796875 195.421875 L 175.546875 193.328125 L 174.09375 191.1875 L 172.640625 189.265625 L 170.96875 187.234375 L 169.296875 185.390625 L 167.515625 183.609375 L 165.75 182.015625 L 163.71875 180.34375 L 161.703125 178.828125 L 159.71875 177.484375 L 157.5 176.140625 L 155.234375 174.921875 L 152.9375 173.8125 L 150.59375 172.8125 L 148.328125 171.984375 L 145.8125 171.203125 L 143.359375 170.578125 L 140.6875 170.03125 L 138.109375 169.625 L 135.578125 169.375 L 132.78125 169.234375 L 131.484375 169.21875 L 130.203125 169.234375 L 127.40625 169.375 L 124.875 169.625 L 122.296875 170.03125 L 119.625 170.578125 L 117.171875 171.203125 L 114.65625 171.984375 L 112.390625 172.8125 L 110.046875 173.8125 L 107.65625 174.96875 L 105.421875 176.171875 L 103.265625 177.484375 L 101.28125 178.828125 L 99.265625 180.34375 L 97.234375 182.015625 L 95.390625 183.6875 L 93.609375 185.46875 L 92.015625 187.234375 L 90.34375 189.265625 L 88.828125 191.28125 L 87.484375 193.265625 L 86.109375 195.53125 L 84.90625 197.75 L 83.8125 200.03125 L 82.8125 202.390625 L 81.984375 204.65625 L 81.1875 207.234375 L 80.546875 209.75 L 80.03125 212.296875 L 79.625 214.90625 L 79.375 217.40625 L 79.234375 220.203125 L 79.21875 221.53125 L 79.234375 222.375 L 79.296875 224.21875 L 79.421875 226.125 L 79.59375 227.8125 L 79.84375 229.609375 L 79.859375 229.609375 L 80.171875 231.453125 L 80.15625 231.453125 L 80.515625 233.109375 L 80.9375 234.828125 L 82.109375 238.96875 L 74.84375 238.796875 L 71.171875 238.65625 L 70.015625 238.5625 L 69.5 238.453125 L 68.671875 238.25 L 67.578125 237.109375 L 66.3125 235.875 L 65.21875 234.84375 L 64.046875 233.828125 L 62.984375 232.9375 L 62 232.1875 L 61.09375 231.546875 L 60.21875 230.96875 L 58.796875 230.125 L 57.15625 229.265625 L 55.65625 228.59375 L 54.25 228.046875 L 54.25 228.0625 L 52.765625 227.515625 L 51.296875 226.9375 L 49.765625 226.296875 L 48.625 225.6875 L 47.828125 225.25 L 47.03125 224.71875 L 46.234375 224.140625 L 45.4375 223.484375 L 44.640625 222.765625 L 43.828125 221.953125 L 43.015625 221.0625 L 42.203125 220.09375 L 41.40625 219.046875 L 40.953125 218.46875 L 40.546875 217.859375 L 39.859375 216.71875 L 39.1875 215.453125 L 38.59375 214.109375 L 38.03125 212.703125 L 37.515625 211.203125 L 37.0625 209.640625 L 36.640625 208.03125 L 36.25 206.328125 L 35.921875 204.5625 L 35.625 202.75 L 35.359375 200.875 L 35.140625 198.921875 L 34.96875 196.953125 L 34.734375 193.890625 L 34.5625 189.65625 L 34.53125 185.265625 L 34.640625 180.71875 L 34.859375 176.125 L 35.203125 171.421875 L 35.65625 166.671875 L 36.234375 161.90625 L 36.921875 157.15625 L 37.71875 152.4375 L 38.609375 147.78125 L 39.59375 143.203125 L 40.6875 138.75 L 41.875 134.4375 L 43.15625 130.3125 L 44.171875 127.328125 L 44.875 125.40625 L 45.59375 123.546875 L 46.34375 121.734375 L 47.125 119.984375 L 47.90625 118.3125 L 48.71875 116.6875 L 49.5625 115.171875 L 50.40625 113.71875 L 51.296875 112.328125 L 52.21875 111.015625 L 53.140625 109.8125 L 54.109375 108.671875 L 55.109375 107.625 L 56.15625 106.671875 L 57.21875 105.828125 L 58.34375 105.078125 L 59.515625 104.46875 L 60.71875 103.96875 L 61.96875 103.625 L 62.59375 103.53125 L 63.375 103.40625 L 64.8125 103.15625 L 64.8125 103.140625 L 66.390625 102.8125 L 66.390625 102.828125 L 67.859375 102.484375 L 70.265625 101.84375 L 73.4375 100.890625 L 76.65625 99.78125 L 79.84375 98.5625 L 79.84375 98.546875 L 83.21875 97.140625 L 86.5625 95.625 L 89.953125 94 L 93.296875 92.28125 L 96.765625 90.421875 L 100.21875 88.5 L 103.65625 86.5 L 107.125 84.4375 L 110.578125 82.296875 L 114.03125 80.125 L 119.1875 76.796875 L 125.984375 72.265625 L 136 65.4375 L 145.5625 58.859375 L 151.6875 54.71875 L 157.53125 50.859375 L 161.71875 48.203125 L 164.40625 46.578125 L 165.71875 45.796875 L 166.546875 45.3125 L 168.25 44.40625 L 170.046875 43.53125 L 171.90625 42.703125 L 173.84375 41.890625 L 175.859375 41.140625 L 177.9375 40.390625 L 180.078125 39.703125 L 182.296875 39.03125 L 184.578125 38.390625 L 186.921875 37.796875 L 189.3125 37.21875 L 193.015625 36.390625 L 198.15625 35.40625 L 203.484375 34.515625 L 208.96875 33.734375 L 214.640625 33.046875 L 220.453125 32.4375 L 226.359375 31.921875 L 232.390625 31.46875 L 238.515625 31.109375 L 244.6875 30.828125 L 250.90625 30.609375 L 257.15625 30.4375 L 263.390625 30.34375 L 269.625 30.296875 L 275.84375 30.296875 L 281.984375 30.34375 L 291.078125 30.5 L 302.8125 30.8125 L 313.984375 31.25 L 324.4375 31.75 L 334.015625 32.28125 L 338.359375 32.5625 L 340.546875 32.71875 L 344.84375 33.140625 L 349.125 33.703125 L 353.375 34.40625 L 357.609375 35.21875 L 361.8125 36.203125 L 365.984375 37.265625 L 370.15625 38.46875 L 374.3125 39.765625 L 378.4375 41.171875 L 382.578125 42.6875 L 386.6875 44.3125 L 390.796875 46.015625 L 394.921875 47.796875 L 399.046875 49.671875 L 403.140625 51.625 L 407.265625 53.640625 L 411.40625 55.734375 L 415.546875 57.875 L 419.71875 60.09375 L 426 63.515625 L 434.453125 68.234375 L 447.3125 75.5625 L 460.5625 83.140625 L 469.59375 88.25 L 474.203125 90.8125 L 474.671875 91.0625 L 475.6875 91.59375 L 477.359375 92.375 L 479.5625 93.25 L 481.90625 94.0625 L 484.484375 94.8125 L 487.046875 95.46875 L 489.640625 96.03125 L 492.421875 96.546875 L 495.328125 97.015625 L 498.21875 97.4375 L 498.21875 97.421875 L 502.828125 97.984375 L 512.40625 98.96875 L 522.5625 99.984375 L 527.8125 100.578125 L 531.359375 101.046875 L 534.921875 101.5625 L 538.53125 102.140625 L 542.171875 102.8125 L 545.828125 103.5625 L 549.5 104.40625 L 553.1875 105.359375 L 556.890625 106.421875 L 560.59375 107.609375 L 564.296875 108.9375 L 567.96875 110.40625 L 570.75 111.609375 L 572.59375 112.46875 L 574.421875 113.359375 L 576.265625 114.3125 L 577.171875 114.796875 L 579.125 115.84375 L 582.921875 117.984375 L 586.65625 120.1875 L 590.296875 122.4375 L 593.828125 124.75 L 597.265625 127.09375 L 600.59375 129.5 L 603.828125 131.953125 L 606.921875 134.453125 L 609.921875 137 L 612.765625 139.578125 L 615.5 142.21875 L 618.09375 144.890625 L 620.546875 147.59375 L 622.859375 150.359375 L 625.015625 153.15625 L 626.515625 155.265625 L 627.484375 156.71875 L 628.390625 158.15625 L 629.265625 159.578125 L 630.109375 161.046875 L 630.890625 162.515625 L 631.640625 164 L 632.34375 165.484375 L 632.984375 166.96875 L 633.59375 168.484375 L 634.15625 169.984375 L 634.671875 171.5 L 635.140625 173.03125 L 635.546875 174.578125 L 635.90625 176.125 L 636.21875 177.671875 L 636.484375 179.234375 L 636.6875 180.796875 L 636.84375 182.359375 L 636.953125 183.9375 L 636.984375 185.53125 L 636.96875 187.109375 L 636.90625 188.6875 L 636.78125 190.296875 L 636.59375 191.890625 L 636.359375 193.5 L 636.046875 195.109375 L 635.6875 196.6875 L 635.265625 198.3125 L 634.765625 199.9375 L 634.234375 201.53125 L 633.625 203.125 L 633.3125 203.921875 L 633.234375 204.15625 Z"
                   );
             
-                if (options.charging) {
-                  ctx.save();
-                  ctx.fillStyle = glyph_color;
-                  ctx.translate(origin.x - 15 * scale_factor, 2);
-                  ctx.scale(0.8 * scale_factor, 0.8 * scale_factor);
-                  ctx.globalCompositeOperation = 'destination-out';
-                  ctx.lineWidth = weight / 1.5;
-                  ctx.stroke(charge);
-                  ctx.globalCompositeOperation = 'source-over';
-                  ctx.fill(charge);
-                  ctx.restore();
-                } else if (options.plugged_in) {
-                  ctx.save();
-                  ctx.fillStyle = glyph_color;
-                  plug = new Path2D(
-                    "M 5.44 39.959999 L 21.280001 39.959999 L 21.280001 8.090004 C 21.280001 3.57 24.98 -0.129997 29.5 -0.129997 L 29.5 -0.129997 C 34.02 -0.129997 37.720001 3.57 37.720001 8.090004 L 37.720001 39.959999 L 61.849998 39.959999 L 61.849998 8.090004 C 61.849998 3.57 65.550003 -0.129997 70.07 -0.129997 L 70.07 -0.129997 C 74.589996 -0.129997 78.290001 3.57 78.290001 8.090004 L 78.290001 39.959999 L 93.709999 39.959999 C 96.57 39.959999 98.900002 42.300003 98.900002 45.150002 L 98.900002 51.169998 C 98.900002 54.029999 96.559998 56.360001 93.709999 56.360001 L 5.44 56.360001 C 2.58 56.360001 0.25 54.020004 0.25 51.169998 L 0.25 45.150002 C 0.25 42.290001 2.59 39.959999 5.44 39.959999 Z M 9.52 56.459999 L 9.52 69.039993 C 9.51 91.100006 19.309999 101.889999 41.790001 104.600006 L 41.790001 122.75 L 58.23 122.75 L 58.23 104.400002 C 80.480003 102.260002 90.5 89.179993 90.5 67.809998 L 90.5 56.459999 Z"
-                  );
-                  ctx.translate(origin.x - 15 * scale_factor, 3);
-                  ctx.scale(0.4 * scale_factor, 0.4 * scale_factor);
-                  ctx.globalCompositeOperation = 'destination-out';
-                  ctx.lineWidth = weight;
-                  ctx.stroke(plug);
-                  ctx.globalCompositeOperation = 'source-over';
-                  ctx.fill(plug);
-                  ctx.restore();
+                if (options.show_car_status) {
+                    if (options.charging) {
+                      ctx.save();
+                      ctx.fillStyle = glyph_color;
+                      ctx.translate(origin.x - 15 * scale_factor, 2);
+                      ctx.scale(0.8 * scale_factor, 0.8 * scale_factor);
+                      ctx.globalCompositeOperation = 'destination-out';
+                      ctx.lineWidth = weight / 1.5;
+                      ctx.stroke(charge);
+                      ctx.globalCompositeOperation = 'source-over';
+                      ctx.fill(charge);
+                      ctx.restore();
+                    } else if (options.plugged_in) {
+                      ctx.save();
+                      ctx.fillStyle = glyph_color;
+                      plug = new Path2D(
+                        "M 5.44 39.959999 L 21.280001 39.959999 L 21.280001 8.090004 C 21.280001 3.57 24.98 -0.129997 29.5 -0.129997 L 29.5 -0.129997 C 34.02 -0.129997 37.720001 3.57 37.720001 8.090004 L 37.720001 39.959999 L 61.849998 39.959999 L 61.849998 8.090004 C 61.849998 3.57 65.550003 -0.129997 70.07 -0.129997 L 70.07 -0.129997 C 74.589996 -0.129997 78.290001 3.57 78.290001 8.090004 L 78.290001 39.959999 L 93.709999 39.959999 C 96.57 39.959999 98.900002 42.300003 98.900002 45.150002 L 98.900002 51.169998 C 98.900002 54.029999 96.559998 56.360001 93.709999 56.360001 L 5.44 56.360001 C 2.58 56.360001 0.25 54.020004 0.25 51.169998 L 0.25 45.150002 C 0.25 42.290001 2.59 39.959999 5.44 39.959999 Z M 9.52 56.459999 L 9.52 69.039993 C 9.51 91.100006 19.309999 101.889999 41.790001 104.600006 L 41.790001 122.75 L 58.23 122.75 L 58.23 104.400002 C 80.480003 102.260002 90.5 89.179993 90.5 67.809998 L 90.5 56.459999 Z"
+                      );
+                      ctx.translate(origin.x - 15 * scale_factor, 3);
+                      ctx.scale(0.4 * scale_factor, 0.4 * scale_factor);
+                      ctx.globalCompositeOperation = 'destination-out';
+                      ctx.lineWidth = weight;
+                      ctx.stroke(plug);
+                      ctx.globalCompositeOperation = 'source-over';
+                      ctx.fill(plug);
+                      ctx.restore();
+                    }
                 }
 
                 // Draw behind-body car status indicators
@@ -1346,7 +1804,7 @@ async function draw_meter(options={}) {
                 let bolt_pos = {x: car_pos.x+68.5, y: car_pos.y+30.5};
                 let bolt_scale = {x: car_scale.x*1.5, y: car_scale.x*1.5};
 
-                if (options.show_car_status) {
+                if (options.show_car_icon && options.show_car_status) {
                     // Draw Liftgate
                     if(options.liftgate_open) {
                       ctx.save();
@@ -1369,6 +1827,7 @@ async function draw_meter(options={}) {
                     bolt_scale = {x: car_scale.x*2, y: car_scale.x*2};
                 }
 
+                if (options.show_car_icon) {
                   // Draw Car
 
                   ctx.save();
@@ -1463,6 +1922,7 @@ async function draw_meter(options={}) {
     
                       ctx.restore();
                     }
+                  }
                 }
 
                 
@@ -1524,9 +1984,11 @@ async function draw_meter(options={}) {
                   if (textWidth <= maxWidth) break; // If it fits, stop adjusting
                   newSize -= 1; // Decrement the font size
               } while (newSize > 0);
+              
+              document.getElementById('logs').innerText += "\\n" + newSize;
 
-              // Return the font string with the adjusted size
-              return ctx.font;
+              // Return the adjusted size
+              return newSize;
           }
             
             draw(${JSON.stringify(options)});
@@ -1544,14 +2006,23 @@ async function draw_meter(options={}) {
     let base64Image = await wv.evaluateJavaScript(js);
     let image_data = Data.fromBase64String(base64Image.replace(/^data:image\/[a-z]+;base64,/, ""))
 
+    logs = await wv.evaluateJavaScript("document.getElementById('logs').innerText");
+    console.log(logs);
+
     // Now 'base64Image' contains a base64-encoded PNG of the canvas
     let image = Image.fromData(image_data)
     return image
 }
 
-function getTimeDifferenceDescription(date) {
-    let now = new Date();
-    let diffInMilliseconds = now - date;
+function getTimeDifferenceDescription(date, compare_to = new Date()) {
+    let diffInMilliseconds = compare_to - date;
+
+    let suffix = ' ago';
+    if (diffInMilliseconds < 0) {
+        suffix = '';
+    }
+
+    diffInMilliseconds = Math.abs(diffInMilliseconds); // Make sure the difference is positive
 
     let seconds = diffInMilliseconds / 1000;
     let minutes = seconds / 60;
@@ -1561,25 +2032,25 @@ function getTimeDifferenceDescription(date) {
     let months = days / 30;
 
     if (months >= 1) {
-        return `${Math.floor(months)} month${Math.floor(months) > 1 ? 's' : ''} ago`;
+        return `${Math.floor(months)} month${Math.floor(months) > 1 ? 's' : ''}${suffix}`;
     } else if (weeks >= 1) {
-        return `${Math.floor(weeks)} week${Math.floor(weeks) > 1 ? 's' : ''} ago`;
+        return `${Math.floor(weeks)} week${Math.floor(weeks) > 1 ? 's' : ''}${suffix}`;
     } else if (days >= 1) {
         if (Math.floor(days) > 1 && days % 1 >= 0.5) {
-            return `${Math.floor(days)} days and ${Math.round((days % 1) * 24)} hours ago`;
+            return `${Math.floor(days)} days and ${Math.round((days % 1) * 24)} hours${suffix}`;
         } else {
-            return `${Math.floor(days)} day${Math.floor(days) > 1 ? 's' : ''} ago`;
+            return `${Math.floor(days)} day${Math.floor(days) > 1 ? 's' : ''}${suffix}`;
         }
     } else if (hours >= 1) {
         if (Math.floor(hours) > 1 && hours % 1 >= 0.5) {
-            return `${Math.floor(hours)} hours and ${Math.round((hours % 1) * 60)} minutes ago`;
+            return `${Math.floor(hours)} hours and ${Math.round((hours % 1) * 60)} minutes${suffix}`;
         } else {
-            return `${Math.floor(hours)} hour${Math.floor(hours) > 1 ? 's' : ''} ago`;
+            return `${Math.floor(hours)} hour${Math.floor(hours) > 1 ? 's' : ''}${suffix}`;
         }
     } else if (minutes >= 1) {
-        return `${Math.floor(minutes)} minute${Math.floor(minutes) > 1 ? 's' : ''} ago`;
+        return `${Math.floor(minutes)} minute${Math.floor(minutes) > 1 ? 's' : ''}${suffix}`;
     } else {
-        return `${Math.floor(seconds)} second${Math.floor(seconds) !== 1 ? 's' : ''} ago`;
+        return `${Math.floor(seconds)} second${Math.floor(seconds) !== 1 ? 's' : ''}${suffix}`;
     }
 }
 
@@ -1587,16 +2058,49 @@ async function main(options = {}) {
     let tba = new ToybaruApp({tokenId: options.tokenId})
     await tba.init();
 
-    widget_options = await get_vehicle_widget_values(tba.vehicle);
-    // console.log(JSON.stringify(widget_options, undefined, 4));
-    // console.log(`data:image/png;base64,${Data.fromPNG(SFSymbol.named("lock.open.fill").image).toBase64String()}`);
-    console.log(`EV Status: ${getTimeDifferenceDescription(tba.vehicle.last_ev_timestamp)}`);
-    console.log(`Vehicle Status: ${getTimeDifferenceDescription(tba.vehicle.last_status_timestamp)}`);
-    console.log(`Next Refresh: ${getTimeDifferenceDescription(tba.vehicle.next_refresh)}`);
+    if (tba.is_logged_in) {
+        let status = await tba.vehicle.get_status();
+        tba.save_prefs();
 
-    widget = await createAccessoryWidget({value: widget_options.value});
-    widget.refreshAfterDate = new Date(tba.vehicle.next_refresh);
-    widget.presentAccessoryCircular();
-    Script.complete();}
+        console.log(JSON.stringify(status.get_status_values(), null, 2));
+
+        if (config.runsInWidget || config.runsInApp) {
+            let widget;
+            switch (config.widgetFamily) {
+                case 'small':
+                    widget = await createSmallWidget();
+                    break;
+                case 'medium':
+                    widget = await createMediumWidget(status.get_status_values());
+                    break;
+                case 'large':
+                    widget = await createLargeWidget(status.get_status_values());
+                    break;
+                case 'extraLarge':
+                    break;
+                case 'accessoryRectangular':
+                case 'accessoryInline':
+                case 'accessoryCircular':
+                    widget = await createAccessoryWidget(status.get_status_values());
+                    break;
+                default:
+                    widget = await createSmallWidget(status.get_status_values());
+                    break;
+            }
+
+            widget.refreshAfterDate = new Date(tba.vehicle.next_refresh);
+
+            Script.setWidget(widget);
+
+            if (config.runsInApp) {
+                await widget.presentSmall();
+                // await tba.client.auth.logout();
+            }
+        }
+    }
+
+
+    Script.complete();
+}
 
 await main(args.queryParameters);
