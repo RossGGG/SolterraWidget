@@ -1219,8 +1219,23 @@ class VehicleStatus {
     }
 
     get door_unlocked() {
-        return this.check_values("Side", "Door", "Unlocked", 1) &&
-            this.check_values("Side", "Rear Door", "Unlocked", 1);
+        return this.some_properties(["door_d_f_unlocked", "door_d_r_unlocked", "door_p_f_unlocked", "door_p_r_unlocked"]);
+    }
+
+    get door_d_f_unlocked() {
+        return this.check_values("Driver Side", "Front Door", "Unlocked", 1);
+    }
+
+    get door_d_r_unlocked() {
+        return this.check_values("Driver Side", "Rear Door", "Unlocked", 1);
+    }
+
+    get door_p_f_unlocked() {
+        return this.check_values("Passenger Side", "Front Door", "Unlocked", 1);
+    }
+
+    get door_p_r_unlocked() {
+        return this.check_values("Passenger Side", "Rear Door", "Unlocked", 1);
     }
 
     get door_open() {
