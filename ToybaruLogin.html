@@ -129,6 +129,11 @@
     </style>
 </head>
 <body>
+<div id="hiddenFields" style="display: none;">
+    <input type="text" id="username" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder=" ">
+    <input type="password" id="password" name="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" placeholder=" ">
+    <input type="text" id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric" pattern="\d{6}" placeholder=" ">
+</div>
 <script>
     class ToybaruAuth {
         configuration = {
@@ -244,10 +249,8 @@
                     req.headers.forEach((value, key) => {
                         response_headers[key] = value;
                     });
-                    // console.log(`-----HEADERS-----\n${JSON.stringify(response_headers, undefined, 4)}`)
 
                     let json = await req.json()
-                    // console.log(JSON.stringify(json, undefined, 4))
 
                     if (json.tokenId) {
                         this.tokenId = json.tokenId;
@@ -307,7 +310,6 @@
         let url = new URL(window.location.href);
         let success_path = url.searchParams.get("success")
 
-
         tba.authenticate_user({handle_callbacks: get_input_values}).then(result => {
             console.log("Authenticated");
 
@@ -349,19 +351,17 @@
         container.style.height = Math.max(contentHeight, minHeightInPixels) + 'px';
     }
 
-    function createElementFromHTML(htmlString) {
-        const div = document.createElement('div');
-        div.innerHTML = htmlString.trim();  // Make sure there's no extra whitespace
-        return div.firstChild;  // Return the first element from the generated container
-    }
     function get_input_values(data) {
         return new Promise((resolve) => {
+            let url = new URL(window.location.href);
+            let locale = url.searchParams.get("locale") || "en-US";
+
             const container = document.getElementById('formContainer');
             const oldForm = formContainer.querySelector('form');
             // console.log(oldForm);
 
             // Create new form and fields
-            const newForm = document.createElement('form');
+            let newForm = document.createElement('form');
             let data_input = document.createElement("input");
             newForm.appendChild(data_input);
             data_input.type = 'hidden';
@@ -374,6 +374,8 @@
                 "Local": "Continue",
             };
 
+            let update_form = true;
+
             data.callbacks.forEach((callback) => {
                 let prompt = callback.output.find(output => output.name === "prompt" && output.value !== "")
                 let input, choices, input_name;
@@ -382,10 +384,21 @@
                     input_name = callback.input.find(input => input.name && input.name !== "").name;
 
                     if (prompt.value === "ui_locales") {
-                        console.log("Setting Locale to: en-US")
-                        callback.input.find(input => input.name && input.name !== "").value = "en-US";
+                        console.log(`Setting Locale to: ${locale}`);
+                        callback.input.find(input => input.name && input.name !== "").value = locale;
                         oldForm.remove();
                         return resolve(data);
+                    } else if (callback.output.find(output => output.name === "choices" && output.value.includes("save"))) {
+                        oldForm.remove();
+                        return resolve(data);
+                    }
+                } else if(callback.output.find(output => output.name === "message" && !data.callbacks.find(cb => cb.input))) {
+                    let previous_output = oldForm.querySelector('#TextOutput');
+                    if (previous_output) {
+                        newForm.remove();
+                        previous_output.innerHTML = callback.output[0].value;
+                        update_form = false;
+                        return;
                     }
                 }
 
@@ -395,34 +408,35 @@
                 switch (callback.type) {
                     case 'NameCallback':
                     case 'StringAttributeInputCallback':
-                        input = document.createElement('input');
-                        input.type = 'text';
-                        input.autofocus = true;
-
-                        if (prompt.value == "User Name") {
-                            input.autocomplete = "username"
+                        if (prompt.value === "User Name") {
+                            input = document.getElementById('username');
+                        } else {
+                            input = document.createElement('input');
+                            input.type = 'text';
                         }
+
+                        input.autofocus = true;
 
                         break;
                     case 'PasswordCallback':
-                        input = document.createElement('input');
-                        input.type = 'password';
-                        input.autofocus = true;
-                        if (prompt.value == "Password") {
-                            input.autocomplete = "current-password"
+                        if (prompt.value === "Password") {
+                            input = document.getElementById('password');
                         } else if (prompt.value === "One Time Password") {
-                            // console.log("OTP");
-                            input.type = "tel";
-                            input.id = "otpInput";
-                            input.inputMode = "decimal";
-                            input.maxLength = 6;
-                            input.autocomplete = "one-time-code"
+                            input = document.getElementById('otp');
 
-                            input.addEventListener('input', function(e) {
-                                // Replace any non-digit characters entered
-                                this.value = this.value.replace(/\D+/g, '');
-                            });
+                            // input.inputMode = "numeric";
+                            // input.maxLength = 6;
+
+                            // input.addEventListener('input', function(e) {
+                            //     // Replace any non-digit characters entered
+                            //     this.value = this.value.replace(/\D+/g, '');
+                            // });
+                        } else {
+                            input = document.createElement('input');
+                            input.type = 'password';
                         }
+
+                        input.autofocus = true;
                         break;
 
                     case 'ConfirmationCallback':
@@ -503,6 +517,7 @@
                         break;
                     case 'TextOutputCallback':
                         const label = document.createElement('label');
+                        label.id = "TextOutput";
                         label.innerHTML = callback.output[0].value;
                         newForm.appendChild(label);
                         return; // Skip creating a standard input element
@@ -537,6 +552,10 @@
                 newForm.appendChild(document.createElement('br'));
             });
 
+            if (!update_form) {
+                newForm = oldForm;
+            }
+
             newForm.onsubmit = function (event) {
                 event.preventDefault(); // Prevent the default form submission
                 doSubmit(event, resolve);
@@ -544,10 +563,14 @@
                 // Further processing, such as validation or AJAX submission.
             };
 
-            newForm.style.transform = 'translateX(100%)'; // Start from right
+            if (update_form) {
 
-            // Append new form to the container
-            container.appendChild(newForm);
+
+                newForm.style.transform = 'translateX(100%)'; // Start from right
+
+                // Append new form to the container
+                container.appendChild(newForm);
+            }
 
             // Set Focus on new form
             const autoFocusInput = newForm.querySelector('input[autofocus]');
@@ -557,17 +580,19 @@
                 autoFocusInput.focus();
             }
 
-            // Slide transition
-            setTimeout(() => {
-                oldForm.style.transform = 'translateX(-100%)'; // Move old form to the left
-                newForm.style.transform = 'translateX(0)'; // Move new form into view
-            }, 100); // Delay to allow DOM update
+            if (update_form) {
+                // Slide transition
+                setTimeout(() => {
+                    oldForm.style.transform = 'translateX(-100%)'; // Move old form to the left
+                    newForm.style.transform = 'translateX(0)'; // Move new form into view
+                }, 100); // Delay to allow DOM update
 
-            // Optionally, remove old form after transition
-            oldForm.addEventListener('transitionend', () => {
-                oldForm.remove();
-                adjustContainerHeight();
-            });
+                // Optionally, remove old form after transition
+                oldForm.addEventListener('transitionend', () => {
+                    oldForm.remove();
+                    adjustContainerHeight();
+                });
+            }
         })
     }
 
