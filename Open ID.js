@@ -1,6 +1,9 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-green; icon-glyph: user-circle;
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: deep-green; icon-glyph: user-circle;
 
 class LoginError extends Error {
     constructor(message) {
@@ -46,7 +49,8 @@ class ToybaruAuth {
             auth_code = null,
             tokens = null,
             configuration = {},
-            refresh_secs = 300} = options;
+            refresh_secs = 300
+        } = options;
 
         this.callback = callback;
         this.tokenId = tokenId;
@@ -304,6 +308,14 @@ class ToybaruAuth {
         }
     }
 
+    async get_user() {
+        if (this.tokens && this.tokens.hasOwnProperty("id_token")) {
+            return this.Utilities.parseJwt(this.tokens.id_token, undefined, false);
+        }
+
+        return null;
+    }
+
     async get_access_token() {
         await this.check_tokens();
         if (this.tokens && this.tokens.access_token) {
@@ -316,46 +328,46 @@ class ToybaruAuth {
 
     async check_tokens() {
         if (this.tokens && this.tokens.hasOwnProperty("expires_at")) {
-            if (this.tokens.expires_at < Date.now()) {
-                try {
+            try {
+                if (this.tokens.expires_at < Date.now()) {
                     console.log("Token has expired. Refreshing tokens.");
                     return await this.refresh_tokens();
-                } catch (error) {
-                    console.error(error);
-                    if (error.name === "LoginError") {
-                        console.log(this.tokenId);
-                        if (this.tokenId) {
-                            try {
-                                return await this.acquire_tokens();
-                            } catch (error) {
-                                if (error.name === "LoginError") {
-                                    console.log("Error acquiring tokens using saved session.")
-                                }
+
+                } else if (this.refresh_secs > 0 && Date.now() > this.tokens.updated_at + this.refresh_secs * 1000) {
+                    return await this.refresh_tokens();
+
+                } else if (this.refresh_secs < 0 && Date.now() > this.tokens.expires_at + this.refresh_secs * 1000) {
+                    return await this.refresh_tokens();
+
+                } else if (this.refresh_secs === 0) {
+                    return await this.refresh_tokens();
+
+                }
+            } catch (error) {
+                console.error(error);
+                if (error.name === "LoginError") {
+                    console.log(this.tokenId);
+                    if (this.tokenId) {
+                        try {
+                            return await this.acquire_tokens();
+                        } catch (error) {
+                            if (error.name === "LoginError") {
+                                console.log("Error acquiring tokens using saved session.")
                             }
                         }
-
-                        // Clear tokens and auth code
-                        this.tokens = null;
-                        this.auth_code = null;
-
-                        if (this.callback) {
-                            console.log("Clearing saved tokens.")
-                            await this.callback(this.tokens);
-                        }
-
-                        throw new ExpiredTokenError("Token has expired.");
                     }
+
+                    // Clear tokens and auth code
+                    this.tokens = null;
+                    this.auth_code = null;
+
+                    if (this.callback) {
+                        console.log("Clearing saved tokens.")
+                        await this.callback(this.tokens);
+                    }
+
+                    throw new ExpiredTokenError("Token has expired.");
                 }
-
-            } else if (this.refresh_secs > 0 && Date.now() > this.tokens.updated_at + this.refresh_secs * 1000) {
-                return await this.refresh_tokens();
-
-            } else if (this.refresh_secs < 0 && Date.now() > this.tokens.expires_at + this.refresh_secs * 1000) {
-                return await this.refresh_tokens();
-
-            } else if (this.refresh_secs === 0) {
-                return await this.refresh_tokens();
-
             }
 
         } else {
@@ -458,7 +470,7 @@ class ToybaruAuth {
             return params;
         }
 
-        static async extract_tokens(tokens, jwt_keys, callback=null) {
+        static async extract_tokens(tokens, jwt_keys, callback = null) {
             let new_tokens = {...tokens};
             const jwt = await this.parseJwt(tokens.id_token, jwt_keys);
             new_tokens.guid = jwt.sub;
@@ -498,13 +510,17 @@ class ToybaruAuth {
             }
         }
 
-        static async parseJwt(payload, jwks) {
+        static async parseJwt(payload, jwks, verify = true) {
             let jwt_payloads = payload.split(".");
             try {
                 let data = {
                     headers: JSON.parse(this.base64UrlDecode(jwt_payloads[0])),
                     jwt: JSON.parse(this.base64UrlDecode(jwt_payloads[1])),
                     signature: jwt_payloads[2]
+                }
+
+                if (!verify) {
+                    return data.jwt;
                 }
 
                 let key = this.key_to_PEM(jwks.keys.find(key => key.kid === data.headers.kid));
@@ -808,6 +824,67 @@ class ToybaruClient {
 
         return new ToybaruClientVehicle(this, vehicle);
     }
+
+    async get_user_info() {
+        let headers = {
+            GUID: await this.auth.get_guid(),
+            "X-BRAND": "S",
+            "X-CHANNEL": "ONEAPP"
+        }
+        return await this.api_get("v4/account", {header: headers});
+    }
+
+    async get_notification_history() {
+        let headers = {
+            GUID: await this.auth.get_guid()
+        }
+
+        const response = await this.api_get("v2/notification/history", {header: headers});
+        if (response.length > 0) {
+            return response[0].notifications;
+        }
+    }
+
+    poll_notifications(options = {}) {
+        return new Promise((resolve, reject) => {
+            let {vin, after, category, message_includes = '', interval = 10000, timeout = 30000} = options;
+            let end = Date.now() + timeout;
+            after = new Date(after);
+
+            const poll_timer = new Timer();
+            poll_timer.timeInterval = interval;
+            poll_timer.repeats = true;
+
+            const poll = () => {
+                this.get_notification_history().then(notifications => {
+                    if (notifications.length > 0) {
+                        let filtered = notifications.filter(notification => notification.vin === vin &&
+                            new Date(notification.notificationDate) > after &&
+                            notification.category === category &&
+                            notification.message.includes(message_includes));
+
+                        if (filtered.length > 0) {
+                            poll_timer.invalidate();
+                            resolve(filtered[0]);
+                        }
+                    }
+                });
+
+                if (Date.now() > end) {
+                    poll_timer.invalidate();
+                    reject();
+                }
+            }
+
+            poll_timer.schedule(poll);
+        });
+    }
+
+    async get_user_picture() {
+        const guid = await this.auth.get_guid();
+
+        return await this.api_get(`oa21mm/v2/profile/picture/${guid}`);
+    }
 }
 
 class ToybaruClientVehicle {
@@ -852,13 +929,28 @@ class ToybaruClientVehicle {
 
     }
 
-    async remote_request(command) {
+    async remote_request(command, options = {}) {
+        const initiated = Date.now();
+
+        const {json = {}} = options;
+
         let result = await this.client.api_post("v1/global/remote/command", {
-            json: {"command": command},
+            json: {"command": command, ...json},
             header: {"VIN": this.vehicle_data.vin}
         });
-        return result.returnCode === "000000";
 
+        if (options.callback) {
+            this.client.poll_notifications({
+                vin: this.vehicle_data.vin,
+                after: initiated,
+                category: "RemoteCommand",
+                message_includes: options.message_includes
+            }).then(result => {
+                options.callback(result);
+            });
+        }
+
+        return result.returnCode === "000000" ? result : false;
     }
 
     async refresh_status_request() {
@@ -869,6 +961,7 @@ class ToybaruClientVehicle {
                 vin: this.vehicle_data.vin
             }, header: {VIN: this.vehicle_data.vin}
         });
+
         try {
             return result.returnCode && result.returnCode === "000000";
         } catch {
@@ -894,20 +987,54 @@ class ToybaruClientVehicle {
         }
     }
 
-    async remote_door_lock() {
-        return await this.client.remote_request(this.vehicle_data.vin, "door-lock");
+    async remote_door_lock(options = {}) {
+        if (options.callback) {
+            options.message_includes = "[DL1]";
+        }
+
+        return await this.remote_request("door-lock", options);
     }
 
-    async remote_door_unlock() {
-        return await this.client.remote_request(this.vehicle_data.vin, "door-unlock");
+    async remote_door_unlock(options = {}) {
+        if (options.callback) {
+            options.message_includes = "[DL0]";
+        }
+
+        return await this.remote_request("door-unlock", options);
     }
 
-    async remote_engine_start() {
-        return await this.client.remote_request(this.vehicle_data.vin, "engine-start");
+    async remote_trunk_lock(options = {}) {
+        if (options.callback) {
+            options.message_includes = "hatch lock";
+        }
+        options.json = {doorLock: {target: 1}}
+
+        return await this.remote_request("door-lock", options);
     }
 
-    async remote_engine_stop() {
-        return await this.client.remote_request(this.vehicle_data.vin, "engine-stop");
+    async remote_trunk_unlock(options = {}) {
+        if (options.callback) {
+            options.message_includes = "hatch unlock";
+        }
+        options.json = {doorLock: {target: 1}}
+
+        return await this.remote_request("door-unlock", options);
+    }
+
+    async remote_engine_start(options = {}) {
+        if (options.callback) {
+            options.message_includes = "[RES2]";
+        }
+
+        return await this.remote_request("engine-start", options);
+    }
+
+    async remote_engine_stop(options = {}) {
+        if (options.callback) {
+            options.message_includes = "[RES0]";
+        }
+
+        return await this.remote_request("engine-stop", options);
     }
 
     async get_vehicle_status() {
@@ -1045,7 +1172,11 @@ class ToybaruApp {
     vehicle;
 
     constructor(options = {}) {
-        const {auth = new ToybaruAuth({tokenId: options.tokenId, callback: this.save_tokens}), client = null, vehicle = null} = options;
+        const {
+            auth = new ToybaruAuth({tokenId: options.tokenId, callback: this.save_tokens}),
+            client = null,
+            vehicle = null
+        } = options;
 
         if (client) {
             this.client = client
@@ -1104,7 +1235,7 @@ class ToybaruApp {
         }
     }
 
-    save_tokens(tokens=null) {
+    save_tokens(tokens = null) {
         if (!tokens) {
             Keychain.remove("subaru_tokens");
             return
@@ -1129,19 +1260,162 @@ class ToybaruApp {
 
     async login() {
         let fm = FileManager.iCloud();
-        let path = fm.joinPath(fm.documentsDirectory(), "ToybaruLogin.html")
-        let url = `file://${path}?locale=${Device.locale().replace("_", "-")}&success=${URLScheme.forRunningScript()}`
+        let path = fm.joinPath(fm.documentsDirectory(), "SolterraConnectApp.html")
+        const query = {
+            locale: Device.locale().replace("_", "-")
+        };
+
+        // if (this.is_logged_in) {
+        //     query.user = JSON.stringify(await this.client.auth.get_user());
+        // }
+
+        let url = `file://${path}?${this.client.auth.Utilities.objectToQueryString(query)}`;
 
         let wv = new WebView();
         wv.shouldAllowRequest = request => {
-            if (!request.url.startsWith(URLScheme.forRunningScript())) return true;
-            // HERE - Close the WebView
-            webview.loadHTML('Please close this window');
-            return false;
+            const data_request = request.url.split("#data_request")[1];
+            if (data_request) {
+                const data = this.client.auth.Utilities.parseQueryParams(data_request);
+                // console.log(data);
+                if (data.login && data.tokenId) {
+                    this.client.auth.tokenId = data.tokenId;
+                    this.client.auth.acquire_tokens().then(() => {
+                        const message = {
+                            type: "user",
+                            value: this.client.auth.get_user()
+                        }
+                        wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                    });
+                }
+
+                if (data.get_vehicle_status) {
+                    this.vehicle.get_status().then(status => {
+                        const message = {
+                            type: "vehicle_status",
+                            value: status.get_status_values()
+                        }
+                        wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                    });
+                }
+
+                if (data.get_vehicle_list) {
+                    this.client.get_user_vehicle_list().then(vehicles => {
+                        const message = {
+                            type: "vehicle_list",
+                            value: vehicles
+                        }
+                        wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                    });
+
+                }
+
+                if (data.selected_vehicle) {
+                    this.client.get_user_vehicle_list().then(vehicles => {
+                        const vehicle = vehicles.find(vehicle => vehicle.vin === data.selected_vehicle);
+                        this.vehicle = new ToybaruClientVehicle(this.client, vehicle);
+                        this._prefs.vehicle = vehicle;
+                        this.save_prefs();
+
+                        this.vehicle.get_status().then(status => {
+                            const message = {
+                                type: "vehicle_status",
+                                value: status.get_status_values()
+                            }
+                            wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                        });
+                    })
+                }
+
+                if (data.lock_doors) {
+                    this.vehicle.remote_door_lock({callback:
+                            (result) => {
+                                const message = {
+                                    type: "lock_success",
+                                    value: result
+                                }
+                                wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+
+                                this.vehicle.get_status().then(status => {
+                                    const message = {
+                                        type: "vehicle_status",
+                                        value: status.get_status_values()
+                                    }
+                                    wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                                });
+                            }});
+                }
+
+                if (data.unlock_doors) {
+                    this.vehicle.remote_door_unlock({callback:
+                            (result) => {
+                                const message = {
+                                    type: "unlock_success",
+                                    value: result
+                                }
+                                wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+
+                                this.vehicle.get_status().then(status => {
+                                    const message = {
+                                        type: "vehicle_status",
+                                        value: status.get_status_values()
+                                    }
+                                    wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                                });
+                            }});
+                }
+
+                if (data.lock_liftgate) {
+                    this.vehicle.remote_trunk_lock({callback:
+                            (result) => {
+                                const message = {
+                                    type: "liftgate_lock_success",
+                                    value: result
+                                }
+                                wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+
+                                this.vehicle.get_status().then(status => {
+                                    const message = {
+                                        type: "vehicle_status",
+                                        value: status.get_status_values()
+                                    }
+                                    wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                                });
+                            }});
+                }
+
+                if (data.unlock_liftgate) {
+                    this.vehicle.remote_trunk_unlock({callback:
+                            (result) => {
+                                const message = {
+                                    type: "liftgate_unlock_success",
+                                    value: result
+                                }
+                                wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+
+                                this.vehicle.get_status().then(status => {
+                                    const message = {
+                                        type: "vehicle_status",
+                                        value: status.get_status_values()
+                                    }
+                                    wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`);
+                                });
+                            }});
+                }
+            }
+            return true;
         }
 
         await wv.loadURL(url);
-        await wv.present();
+        if (this.is_logged_in) {
+            const message = {
+                type: "user",
+                value: await this.client.auth.get_user()
+            }
+            message.value.profile_picture = await this.client.get_user_picture();
+            await wv.evaluateJavaScript(`window.onScriptableMessage(${JSON.stringify(message)})`)
+        }
+
+        await wv.present(true);
     }
 
     get is_logged_in() {
@@ -2077,13 +2351,14 @@ async function main(options = {}) {
         let status = await tba.vehicle.get_status();
         tba.save_prefs();
 
-        console.log(JSON.stringify(status.get_status_values(), null, 2));
+//         console.log(JSON.stringify(await tba.client.get_auth_headers(), null, 2));
+//         console.log(JSON.stringify(await tba.client.get_user_picture(), null, 2));
 
-        if (config.runsInWidget || config.runsInApp) {
+        if (config.runsInWidget) {
             let widget;
             switch (config.widgetFamily) {
                 case 'small':
-                    widget = await createSmallWidget();
+                    widget = await createSmallWidget(status.get_status_values());
                     break;
                 case 'medium':
                     widget = await createMediumWidget(status.get_status_values());
@@ -2106,11 +2381,11 @@ async function main(options = {}) {
             widget.refreshAfterDate = new Date(tba.vehicle.next_refresh);
 
             Script.setWidget(widget);
+        }
 
-            if (config.runsInApp) {
-                await widget.presentSmall();
-                // await tba.client.auth.logout();
-            }
+        if (config.runsInApp) {
+            await tba.login();
+            // await tba.client.auth.logout();
         }
     }
 
