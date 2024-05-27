@@ -10,6 +10,8 @@
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@docsearch/css@3" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Babel CDN for JSX support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
 
     <script>
         /*!
@@ -103,6 +105,16 @@
             user-select: none;
         }
 
+        .accordion {
+            width: 51%;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            --bs-accordion-border-width: 0;
+            background-color: transparent !important;
+            color: var(--bs-body) !important;
+        }
+
         .btn-outline-tertiary {
             --bs-btn-color: var(--bs-body-color);
             --bs-btn-border-color: var(--bs-body-color);
@@ -148,21 +160,12 @@
             }
         }
 
-        .b-example-divider {
-            width: 100%;
-            height: 3rem;
-            background-color: rgba(0, 0, 0, .1);
-            border: solid rgba(0, 0, 0, .15);
-            border-width: 1px 0;
-            box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
-        }
-
         .container {
-            flex-shrink: 0;
             height: 100%;
             width: calc(100% - 4.5rem);
             margin-left: 4.5rem;
-            overflow: auto;
+            overflow: visible;
+            touch-action: auto;
         }
 
         .sidebar {
@@ -172,26 +175,8 @@
         }
 
         .bi {
-        / / vertical-align: - .125 em;
+            /*vertical-align: -.125em;*/
             fill: currentColor;
-        }
-
-        .nav-scroller {
-            position: relative;
-            z-index: 2;
-            height: 2.75rem;
-            overflow-y: hidden;
-        }
-
-        .nav-scroller .nav {
-            display: flex;
-            flex-wrap: nowrap;
-            padding-bottom: 1rem;
-            margin-top: -1px;
-            overflow-x: auto;
-            text-align: center;
-            white-space: nowrap;
-            -webkit-overflow-scrolling: touch;
         }
 
         .btn-bd-primary {
@@ -213,6 +198,19 @@
 
         .bd-mode-toggle .dropdown-menu .active .bi {
             display: block !important;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinning {
+            animation: spin 1s linear infinite;
         }
     </style>
 
@@ -249,7 +247,14 @@
         <path d="M0 9.61922C0 9.96101 0.273438 10.2149 0.625 10.2149L4.93164 10.2149L2.66602 16.3673C2.34375 17.2559 3.26172 17.7345 3.84766 17.0118L10.8301 8.29109C10.9668 8.10555 11.0449 7.93953 11.0449 7.74422C11.0449 7.40242 10.7812 7.14851 10.4199 7.14851L6.11328 7.14851L8.37891 0.99617C8.71094 0.107498 7.7832-0.371017 7.19727 0.351639L0.214844 9.07234C0.078125 9.25789 0 9.4239 0 9.61922Z"
               fill="#28cd41"/>
     </symbol>
-    <symbol id="fan_on" viewBox="0 0 22 24">
+    <symbol id="power" viewBox="0 0 17 17">
+        <path d="M7.88086 16.2012C12.1875 16.2012 15.7715 12.627 15.7715 8.32031C15.7715 6.03516 14.7559 3.98438 13.2617 2.59766C12.5 1.89453 11.5039 2.93945 12.2656 3.66211C13.5059 4.82422 14.2676 6.47461 14.2773 8.32031C14.2871 11.875 11.4355 14.7168 7.88086 14.7168C4.33594 14.7168 1.50391 11.875 1.50391 8.32031C1.51367 6.45508 2.27539 4.81445 3.50586 3.65234C4.27734 2.91992 3.27148 1.88477 2.50977 2.58789C1.01562 3.97461 0 6.03516 0 8.32031C0 12.627 3.58398 16.2012 7.88086 16.2012ZM7.88086 8.26172C8.31055 8.26172 8.58398 7.96875 8.58398 7.51953L8.58398 0.751953C8.58398 0.302734 8.31055 0 7.88086 0C7.46094 0 7.17773 0.302734 7.17773 0.751953L7.17773 7.51953C7.17773 7.96875 7.46094 8.26172 7.88086 8.26172Z"/>
+    </symbol>
+    <symbol id="power.off" viewBox="0 0 16 17">
+        <path d="M7.71484 1.71875C8.19336 1.71875 8.57422 1.33789 8.57422 0.859375C8.57422 0.380859 8.19336 0 7.71484 0C7.23633 0 6.85547 0.380859 6.85547 0.859375C6.85547 1.33789 7.23633 1.71875 7.71484 1.71875ZM7.71484 5.27344C8.19336 5.27344 8.57422 4.89258 8.57422 4.41406C8.57422 3.93555 8.19336 3.55469 7.71484 3.55469C7.23633 3.55469 6.85547 3.93555 6.85547 4.41406C6.85547 4.89258 7.23633 5.27344 7.71484 5.27344ZM7.71484 8.82812C8.19336 8.82812 8.57422 8.44727 8.57422 7.96875C8.57422 7.49023 8.19336 7.10938 7.71484 7.10938C7.23633 7.10938 6.85547 7.49023 6.85547 7.96875C6.85547 8.44727 7.23633 8.82812 7.71484 8.82812ZM2.24609 4.94141C2.72461 4.94141 3.10547 4.56055 3.10547 4.08203C3.10547 3.61328 2.72461 3.22266 2.24609 3.22266C1.76758 3.22266 1.38672 3.61328 1.38672 4.08203C1.38672 4.56055 1.76758 4.94141 2.24609 4.94141ZM0.859375 8.44727C1.33789 8.44727 1.71875 8.06641 1.71875 7.58789C1.71875 7.11914 1.33789 6.72852 0.859375 6.72852C0.380859 6.72852 0 7.11914 0 7.58789C0 8.06641 0.380859 8.44727 0.859375 8.44727ZM1.55273 11.9727C2.03125 11.9727 2.41211 11.5918 2.41211 11.1133C2.41211 10.6348 2.03125 10.2539 1.55273 10.2539C1.07422 10.2539 0.693359 10.6348 0.693359 11.1133C0.693359 11.5918 1.07422 11.9727 1.55273 11.9727ZM3.98438 14.873C4.46289 14.873 4.84375 14.4922 4.84375 14.0137C4.84375 13.5352 4.46289 13.1543 3.98438 13.1543C3.50586 13.1543 3.125 13.5352 3.125 14.0137C3.125 14.4922 3.50586 14.873 3.98438 14.873ZM7.71484 15.918C8.19336 15.918 8.57422 15.5371 8.57422 15.0586C8.57422 14.5801 8.19336 14.1992 7.71484 14.1992C7.23633 14.1992 6.85547 14.5801 6.85547 15.0586C6.85547 15.5371 7.23633 15.918 7.71484 15.918ZM11.4551 14.873C11.9238 14.873 12.3145 14.4922 12.3145 14.0137C12.3145 13.5352 11.9238 13.1543 11.4551 13.1543C10.9766 13.1543 10.5957 13.5352 10.5957 14.0137C10.5957 14.4922 10.9766 14.873 11.4551 14.873ZM13.877 11.9727C14.3555 11.9727 14.7363 11.5918 14.7363 11.1133C14.7363 10.6348 14.3555 10.2539 13.877 10.2539C13.3984 10.2539 13.0176 10.6348 13.0176 11.1133C13.0176 11.5918 13.3984 11.9727 13.877 11.9727ZM14.5801 8.44727C15.0488 8.44727 15.4297 8.06641 15.4297 7.58789C15.4297 7.11914 15.0488 6.72852 14.5801 6.72852C14.1016 6.72852 13.7207 7.11914 13.7207 7.58789C13.7207 8.06641 14.1016 8.44727 14.5801 8.44727ZM13.1836 4.94141C13.6621 4.94141 14.043 4.56055 14.043 4.08203C14.043 3.61328 13.6621 3.22266 13.1836 3.22266C12.7051 3.22266 12.3242 3.61328 12.3242 4.08203C12.3242 4.56055 12.7051 4.94141 13.1836 4.94141Z"
+              fill-opacity="0.5"/>
+    </symbol>
+    <symbol id="fan_on" viewBox="0 0 21 21">
         <path d="M10.498 14.209C12.5391 14.209 14.209 12.5488 14.209 10.5078C14.209 8.4668 12.5391 6.79688 10.498 6.79688C8.45703 6.79688 6.79688 8.4668 6.79688 10.5078C6.79688 12.5488 8.45703 14.209 10.498 14.209ZM10.498 12.7051C9.28711 12.7051 8.30078 11.7188 8.30078 10.5078C8.30078 9.29688 9.28711 8.30078 10.498 8.30078C11.709 8.30078 12.7051 9.29688 12.7051 10.5078C12.7051 11.7188 11.709 12.7051 10.498 12.7051ZM10.498 11.8945C11.2793 11.8945 11.8945 11.2793 11.8945 10.5078C11.8945 9.73633 11.2695 9.10156 10.498 9.10156C9.7168 9.10156 9.10156 9.7168 9.10156 10.5078C9.10156 11.2891 9.7168 11.8945 10.498 11.8945ZM9.79492 7.50977L9.79492 2.79297C9.79492 0.996094 8.82812 0 7.08984 0C3.96484 0.00976562 0.703125 2.83203 0.703125 5.5957C0.703125 8.11523 3.04688 9.52148 7.10938 10.8594L7.73438 9.44336C4.15039 8.25195 2.19727 7.33398 2.19727 5.5957C2.19727 3.64258 4.78516 1.49414 7.08984 1.49414C7.99805 1.49414 8.30078 1.82617 8.30078 2.79297L8.30078 7.93945ZM13.4961 9.79492L18.2227 9.79492C20.0195 9.79492 21.0059 8.83789 21.0059 7.09961C21.0059 3.97461 18.1738 0.703125 15.4102 0.703125C12.8906 0.703125 11.4844 3.05664 10.1465 7.12891L11.5625 7.75391C12.7539 4.16992 13.6719 2.19727 15.4102 2.19727C17.3633 2.19727 19.5117 4.79492 19.5117 7.09961C19.5117 8.00781 19.1895 8.30078 18.2227 8.30078L13.0664 8.30078ZM11.2109 13.5059L11.2109 18.2324C11.2109 20.0293 12.168 21.0156 13.9062 21.0156C17.041 21.0156 20.3027 18.1836 20.3027 15.4199C20.3027 12.9004 17.9492 11.4941 13.8867 10.1562L13.2617 11.5723C16.8457 12.7637 18.8086 13.6816 18.8086 15.4199C18.8086 17.373 16.2207 19.5215 13.9062 19.5117C12.998 19.5117 12.7051 19.1992 12.7051 18.2324L12.7051 13.0762ZM7.5 11.2109L2.77344 11.2109C0.986328 11.2109 0 12.1777 0 13.916C0 17.0508 2.82227 20.3125 5.58594 20.3125C8.10547 20.3125 9.51172 17.959 10.8496 13.8965L9.43359 13.2715C8.24219 16.8555 7.32422 18.8086 5.58594 18.8086C3.63281 18.8086 1.49414 16.2305 1.49414 13.916C1.49414 13.0078 1.80664 12.7051 2.77344 12.7051L7.92969 12.7051Z"
               fill-opacity="0.85"/>
     </symbol>
@@ -338,8 +343,20 @@
 <script crossorigin="anonymous"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script crossorigin="anonymous"
+        integrity="sha512-vLs5rAqfvmv/IpN7JustROkGAvjK/L+vgVDFe7KpdtLztqF8mZDfleK2MZj/xuOrWjma0pW+lPCMcBbPKJVC7g=="
+        referrerpolicy="no-referrer" src="https://cdnjs.cloudflare.com/ajax/libs/textfit/2.4.0/textFit.min.js"></script>
+<!-- React and ReactDOM from CDN -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-is@latest/umd/react-is.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/styled-components@5/dist/styled-components.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@microlink/mql@latest/dist/mql.min.js"></script>
+<!-- Microlink SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@microlink/vanilla@latest/dist/microlink.min.js"></script>
 
-<script>
+
+<script type="text/babel">
     /* global bootstrap: false */
     (() => {
         'use strict'
@@ -993,7 +1010,8 @@
             ]
         }],
         vehicle_status: {
-            "value": 65,
+            "odometer": "16558 Mile(s)",
+            "value": 100,
             "door_unlocked": false,
             "door_d_f_unlocked": false,
             "door_d_r_unlocked": false,
@@ -1004,7 +1022,6 @@
             "door_d_r_open": false,
             "door_p_f_open": false,
             "door_p_r_open": false,
-            "liftgate_unlocked": false,
             "liftgate_open": false,
             "window_open": false,
             "window_d_f_open": false,
@@ -1012,16 +1029,81 @@
             "window_p_f_open": false,
             "window_p_r_open": false,
             "blower_on": false,
-            "plugged_in": false,
-            "charging": false,
-            "remainingChargeTime": "1 month left",
-            "remainingDistance": "150 mi",
+            "plugged_in": true,
+            "charging": true,
+            "engine_status": "0",
+            "engine_start_time": "2024-05-23T08:34:39.959Z",
+            "engine_duration": "20",
+            "remainingChargeTime": "2024-05-23T08:20:52.254Z",
+            "remainingChargeTimeDescription": "49 minutes left",
+            "remainingDistance": "203 mi",
+            "remainingDistanceClimateOff": "226 mi",
             "nickName": "Car McBatteryFace",
+            "lastUpdated": "2024-05-23T07:28:43.000Z",
             "vin": "JTMHBABA01010011",
-            "modelName": "Solterra Touring",
-            "modelYear": "2023",
-            "modelImage": "https://cvs-istore.telematicsct.com/US/SUB/2023/Solterra/MY23_SOL_Touring_O21_Elemental-Red-Pearl-Two-Tone_Black-Star-Tex_1.0002.png",
-            "lastUpdated": "3 hours ago"
+            "lastUpdatedDescription": "2 minutes ago"
+        },
+        customizations: {
+            descriptions: {
+                refresh_interval: {
+                    label: "Refresh Interval",
+                    description: "The time in seconds to wait before refreshing the vehicle status.",
+                    type: "number"
+                },
+                widget_color: {
+                    label: "Widget Color",
+                    description: "Select a background color for the widget.",
+                    type: "color"
+                },
+                lockscreen_widget_background: {
+                    label: "Lockscreen Widget Background",
+                    description: "Enable a visible background for the lockscreen widgets.",
+                    type: "boolean"
+                },
+            },
+            values: {
+                refresh_interval: 300000,
+                widget_color: "#01478E",
+                lockscreen_widget_background: false
+            }
+        }
+    }
+    const shortcut_links = {
+        "lock_status": {
+            label: "Lock My Car",
+            location: "http://www.icloud.com/shortcuts/aa8418624f844af28685a98fd4902df0",
+        },
+        "battery_status": {
+            label: "Check My Car Battery",
+            location: "http://www.icloud.com/shortcuts/38e86b9ca469415bb5f792aba1ae77df",
+        },
+        "charge_status": {
+            label: "Check my car charge",
+            location: "http://www.icloud.com/shortcuts/f896d04491b841d69604f526829d7970",
+        },
+        "lock_doors": {
+            label: "Lock My Car",
+            location: "http://www.icloud.com/shortcuts/ccaad8ae77fa4a6891e8e86eb3a0bbd3",
+        },
+        "unlock_doors": {
+            label: "Unlock My Car",
+            location: "http://www.icloud.com/shortcuts/2b8a33c99e564f718624f719fdda45e4",
+        },
+        "lock_liftgate": {
+            label: "Lock The Car Hatch",
+            location: "http://www.icloud.com/shortcuts/2efcde0644f04fdf86539afadb9f6de2",
+        },
+        "unlock_liftgate": {
+            label: "Unlock The Car Hatch",
+            location: "http://www.icloud.com/shortcuts/10c200fe59bd4f7ca4e24a5d5d905559",
+        },
+        "car_off": {
+            label: "Stop My Car",
+            location: "http://www.icloud.com/shortcuts/6de7f39ed3324bd1a93f82cf12678eb7",
+        },
+        "car_on": {
+            label: "Start My Car",
+            location: "http://www.icloud.com/shortcuts/7751a77332044414938982cab73dc57a",
         }
     }
 
@@ -1032,6 +1114,10 @@
 
         static vehicleList() {
             this._send_request('get_vehicle_list=1')
+        }
+
+        static customizations() {
+            this._send_request('fetch_customizations=1')
         }
 
         static selectVehicle(vin) {
@@ -1052,6 +1138,14 @@
 
         static unlockLiftgate() {
             this._send_request('unlock_liftgate=1');
+        }
+
+        static climateOff() {
+            this._send_request('climate_off=1');
+        }
+
+        static climateOn() {
+            this._send_request('climate_on=1');
         }
 
         static logout() {
@@ -1107,7 +1201,6 @@
         async process_auth_callbacks(options) {
             let {data = {}, input_callback = this.get_input} = options;
             if ("callbacks" in data) {
-                console.log(JSON.stringify(data.callbacks, undefined, 4))
 
                 let inputs = [];
                 for (const callback of data["callbacks"]) {
@@ -1237,14 +1330,36 @@
             this.vehicles = [];
             this.vehicle_status = {};
             this.main = document.createElement('main');
-            this.main.className = 'd-flex flex-nowrap';
+            this.main.className = 'h-100';
             this.sidebar = this.initializeSidebar();
             this.user = {};
+            this.customizations = {}
+
             this.updateUser();
 
             this.auth = new ToybaruAuth();
 
             document.body.appendChild(this.main);
+
+            // Assign event listener for boostrap breakpoints
+            window.addEventListener('resize', this.updateResponsiveText.bind(this));
+
+
+            document.addEventListener('hide.bs.collapse', (event) => {
+                // get the element that triggered the collapse event
+                const element = event.target;
+
+                // Remove show state to local storage
+                localStorage.setItem(`${element.id}_show`, 'false');
+            });
+
+            document.addEventListener('show.bs.collapse', (event) => {
+                // get the element that triggered the collapse event
+                const element = event.target;
+
+                // Remove show state to local storage
+                localStorage.setItem(`${element.id}_show`, 'true');
+            });
         }
 
         updateUser() {
@@ -1308,15 +1423,19 @@
                 "blower_on": false,
                 "plugged_in": false,
                 "charging": false,
-                "remainingChargeTime": "1 month left",
+                "engine_status": "0",
+                "engine_start_time": "2024-05-23T08:20:52.254Z",
+                "engine_duration": "20",
+                "remainingChargeTimeDescription": "1 month left",
                 "remainingDistance": "159 mi",
                 "remainingDistanceClimateOff": "N/A",
                 "nickName": "Vehicle Name",
                 "vin": "N/A",
+                "odometer": "0 Mile(s)",
                 "modelName": "Solterra",
                 "modelYear": "2023",
                 "modelImage": "https://cvs-istore.telematicsct.com/US/SUB/2023/Solterra/MY23_SOL_Touring_O21_Elemental-Red-Pearl-Two-Tone_Black-Star-Tex_1.0002.png",
-                "lastUpdated": "3 hours ago"
+                "lastUpdatedDescription": "3 hours ago"
             }
 
             status = {...default_status, ...status};
@@ -1337,12 +1456,40 @@
                 document.getElementById("btn_lock_liftgate").classList.remove('active');
             }
 
+            if (status.engine_status !== "1") {
+                document.getElementById("btn_off_climate").classList.add('active');
+                document.getElementById("btn_on_climate").classList.remove('active');
+
+                document.getElementById("countdown_timer").style.display = 'none';
+            } else {
+                document.getElementById("btn_on_climate").classList.add('active');
+                document.getElementById("btn_off_climate").classList.remove('active');
+                document.getElementById("countdown_timer").style.display = 'block';
+
+                this.updateEngineCountdown();
+            }
+
+            if (!status.blower_on) {
+                document.getElementById("climate_status_icon").classList.remove('spinning');
+            } else {
+                document.getElementById("climate_status_icon").classList.add('spinning');
+            }
+
             document.getElementById("car_image").src = status.modelImage;
 
             document.getElementById("vehicle_name").textContent = status.nickName;
             document.getElementById("vehicle_year").textContent = status.modelYear;
             document.getElementById("vehicle_model").textContent = status.modelName;
             document.getElementById("vehicle_vin").textContent = status.vin;
+            document.getElementById("odometer").textContent = status.odometer;
+
+            const last_updated = new Date(status.lastUpdated);
+            // Check if last_updated is before today
+            if (last_updated.toDateString() === new Date().toDateString()) {
+                document.getElementById("updated").textContent = last_updated.toLocaleTimeString();
+            } else {
+                document.getElementById("updated").textContent = last_updated.toLocaleString();
+            }
 
             document.getElementById("range_climate_on").innerText = status.remainingDistance;
             document.getElementById("range_climate_off").innerText = status.remainingDistanceClimateOff;
@@ -1352,7 +1499,7 @@
             document.getElementById('progressBar_inner').innerHTML = `${status.value}%`;
 
             if (status.charging) {
-                document.getElementById('charging_text').innerText = status.remainingChargeTime;
+                document.getElementById('charging_text').innerText = status.remainingChargeTimeDescription.replace('left', '').replace('and', '&')
                 document.getElementById('battery_widget_controls').style.display = 'block';
                 document.getElementById('progressBar_inner').classList.add('progress-bar-striped', 'progress-bar-animated');
             } else {
@@ -1380,12 +1527,38 @@
             document.getElementById('liftgate.door.lock').setAttributeNS('http://www.w3.org/1999/xlink', 'href', status.liftgate_unlocked ? '#lock.open' : '#lock');
             document.getElementById('suv.body.side').style.opacity = '0.8';
 
-            this.removePlaceholder(status_element);
+            document.getElementById('power_status').setAttributeNS('http://www.w3.org/1999/xlink', 'href', status.engine_status === "1" ? '#power' : '#power.off');
+            document.getElementById('climate_status').setAttributeNS('http://www.w3.org/1999/xlink', 'href', status.blower_on ? '#fan_on' : '#fan_off');
 
+            this.removePlaceholder(status_element);
+            this.updateResponsiveText();
+
+        }
+
+        updateEngineCountdown() {
+            const status = this.vehicle_status;
+
+            if (status.engine_status === "1") {
+                // Calculate the time from now until engine_start_time + engine_duration
+                let remaining_time = new Date(Math.max(new Date(status.engine_start_time).getTime() + (status.engine_duration * 60000) - Date.now(), 0));
+
+                // Format the remaining time as mm:ss
+                document.getElementById("countdown_timer").innerText = `${remaining_time.getMinutes().toString().padStart(2, '0')}:${remaining_time.getSeconds().toString().padStart(2, '0')}`;
+
+                // Update the remaining time every second
+                if (remaining_time > 0) {
+                    setTimeout(this.updateEngineCountdown.bind(this), 1000);
+                }
+            }
         }
 
         updateVehicleCards(vehicles) {
             const vehicle_cards = document.getElementById('vehicle_select_cards');
+
+            if (!vehicle_cards) {
+                return;
+            }
+
             vehicle_cards.innerHTML = '';
 
             if (vehicles.length === 0) {
@@ -1393,11 +1566,65 @@
             }
 
             vehicle_cards.append(...this.vehicles.map(this.createVehicleSelectCard));
+
+            this.updateResponsiveText();
+
+        }
+
+        updateResponsiveText() {
+            // Text Fit all elements with the class 'responsive-text' that are not inside of an element with display:none set
+            const visible_responsive = document.querySelectorAll('.responsive-text:not([style*="display: none"])');
+            textFit(visible_responsive, {multiLine: true});
+        }
+
+        updateCustomizeCards(customizations) {
+            const customize_cards = document.getElementById('customize_cards')
+            customize_cards.innerHTML = '';
+
+            // Import create_root from ReactDOM
+            const {createRoot} = ReactDOM;
+
+            // Initialize the React root
+            const root = createRoot(customize_cards);
+
+            const CustomizeApp = this.createCustomizeCards
+
+            // Render the CustomizeApp component to the React root
+            root.render(<CustomizeApp options={customizations}/>);
+        }
+
+        update_collapse_state() {
+            // Get all collapse elements
+            const collapses = document.querySelectorAll('.collapse');
+
+            // Iterate over each collapse element
+            collapses.forEach((collapse) => {
+                // Get the id of the collapse element
+                const id = collapse.id;
+
+                // Get the show state from local storage
+                const show = localStorage.getItem(`${id}_show`);
+
+                // If the show state is false, hide the collapse element
+                if (show === 'false') {
+                    const bsCollapse = new bootstrap.Collapse(`#${id}`, {
+                        show: false
+                    })
+                }
+            });
+        }
+
+        navigateToPage(container_id) {
+            // Find the button targeting the given container
+            const button = document.querySelector(`[data-container-id="${container_id}"]`);
+
+            if (button) {
+                button.click();
+            }
+
         }
 
         async handle_auth_callbacks(data) {
-            // console.log("CALLBACKS");
-            // console.log(JSON.stringify(data.callbacks, undefined, 4));
 
             let result = {};
             for (const callback of data.callbacks) {
@@ -1554,21 +1781,33 @@
 
         }
 
+        check_login() {
+            if (/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent)) {
+                // iOS device using WKWebView (Scriptable)
+                if (!this.user || Object.keys(this.user).length === 0) {
+                    for (let element of this.main.getElementsByClassName('container')) {
+                        element.style.display = 'none';
+                    }
+                    this.auth.authenticate_user({handle_callbacks: this.handle_auth_callbacks.bind(this)}).then(() => {
+                        if (this.auth.tokenId) {
+                            // this.user.token_cookie = result;
+                            ScriptableRequest.login(this.auth.tokenId);
+                            this.hideModals({disponse: true});
+                        }
+                    });
+
+                    return false;
+                }
+
+            }
+
+            return true;
+        }
+
         update_container_visibilities() {
             this.updateUser();
 
-            if (!this.user || Object.keys(this.user).length === 0) {
-                for (let element of this.main.getElementsByClassName('container')) {
-                    element.style.display = 'none';
-                }
-                this.auth.authenticate_user({handle_callbacks: this.handle_auth_callbacks.bind(this)}).then(() => {
-                    if (this.auth.tokenId) {
-                        // this.user.token_cookie = result;
-                        ScriptableRequest.login(this.auth.tokenId);
-                        this.hideModals({disponse: true});
-                    }
-                });
-
+            if (!this.check_login()) {
                 return;
             }
 
@@ -1589,6 +1828,15 @@
                             this.updateVehicleCards(this.vehicles);
                             ScriptableRequest.vehicleList();
                             break;
+
+                        case 'customizations':
+                            this.main.appendChild(this.createCustomizeContainer(containerId));
+                            ScriptableRequest.customizations();
+                            break;
+
+                        case 'shortcuts':
+                            this.main.appendChild(this.createShortcutsContainer(containerId));
+                            break;
                     }
                 }
 
@@ -1600,10 +1848,16 @@
                 this.main.querySelector(`#${containerId}`).style.display = 'block';
 
             }
+            this.update_collapse_state();
         }
 
         createSVGSymbolElement(options = {}) {
-            const svg_element = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            let svg_element
+            if (options.symbolName && options.symbolName.startsWith('#')) {
+                svg_element = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            } else {
+                svg_element = document.createElement('i');
+            }
 
             for (let option in options) {
                 switch (option) {
@@ -1628,12 +1882,20 @@
                         break;
 
                     case 'symbolName':
-                        const symbol_link = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                        symbol_link.setAttributeNS('http://www.w3.org/1999/xlink', 'href', options[option]);
-                        svg_element.appendChild(symbol_link);
+                        if (options.symbolName.startsWith('#')) {
+                            const symbol_link = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                            symbol_link.setAttributeNS('http://www.w3.org/1999/xlink', 'href', options[option]);
+                            svg_element.appendChild(symbol_link);
 
-                        if (options.symbolId) {
-                            symbol_link.id = options.symbolId;
+                            if (options.symbolId) {
+                                symbol_link.id = options.symbolId;
+                            }
+
+                        } else {
+                            svg_element.classList.add('bi', 'bi-' + options[option]);
+                            if (options.width) {
+                                svg_element.style.fontSize = options.width;
+                            }
                         }
                 }
             }
@@ -1682,12 +1944,22 @@
                 ...icon
             }
 
-            const nav_icon = this.createSVGSymbolElement({
-                className: 'bi pe-none',
-                height: icon_options.height,
-                width: icon_options.width,
-                symbolName: icon_options.name
-            });
+            let nav_icon;
+            if (icon_options.url) {
+                nav_icon = document.createElement('img');
+                nav_icon.src = icon_options.url;
+                nav_icon.alt = tooltip_text;
+                nav_icon.style.height = icon_options.height;
+                nav_icon.style.width = icon_options.width;
+
+            } else {
+                nav_icon = this.createSVGSymbolElement({
+                    className: 'bi pe-none',
+                    height: icon_options.height,
+                    width: icon_options.width,
+                    symbolName: icon_options.name
+                });
+            }
 
             nav_icon.setAttribute('role', 'img');
 
@@ -1742,9 +2014,22 @@
                     icon: {
                         name: '#paintbrush'
                     },
-                    container_id: 'widget_customizations'
+                    container_id: 'customizations'
+                },
+                {
+                    tooltip_text: 'Shortcuts',
+                    icon: {
+                        url: 'https://support.apple.com/library/content/dam/edam/applecare/images/en_US/macos/highsierra/macos-high-sierra-siri-app-icon.png'
+                    },
+                    container_id: 'shortcuts',
+                    additionalClasses: ['border-top']
                 }
             ].map(options => this.createSidebarNavElement(options));
+
+            // Add a spacer element to the end of the nav elements
+            const spacer = document.createElement('div');
+            spacer.style.height = '5em';
+            nav_elements.splice(-1, 0, spacer);
 
             sidebar_nav.append(...nav_elements);
 
@@ -1808,7 +2093,7 @@
 
         initializeSidebar() {
             const sidebar = this.createSidebarElement();
-            this.main.appendChild(sidebar);
+            document.body.appendChild(sidebar);
 
             return sidebar;
         }
@@ -2312,9 +2597,10 @@
             const elements = [];
 
             const charging_text = document.createElement('span');
-            charging_text.className = 'ms-2';
+            charging_text.className = 'text-start';
             charging_text.id = 'charging_text';
             charging_text.innerText = '6 Hours Remain';
+            charging_text.style.fontSize = '0.8em';
 
             elements.push(charging_text);
 
@@ -2325,7 +2611,8 @@
             const elements = [];
 
             const ranges_div = document.createElement('div');
-            ranges_div.className = 'hstack gap-2 text-center';
+            ranges_div.className = 'collapse show hstack gap-2 text-center';
+            ranges_div.id = 'ranges_div';
 
             const climate_on_div = this.createRangeElement({
                 value_id: 'range_climate_on',
@@ -2368,7 +2655,8 @@
             const elements = [];
 
             const row = document.createElement('div');
-            row.className = 'row row-cols-3 text-center g-0';
+            row.id = 'door_status_element';
+            row.className = 'collapse show row row-cols-3 text-center g-0';
 
             const door_status_columns = ['Driver', 'Passenger'].map(title => this.createDoorStatusColumn({title: title}));
             const car_icon_column = this.createCarIconColumn();
@@ -2385,7 +2673,8 @@
             const elements = []
 
             const stack = document.createElement('div');
-            stack.className = 'hstack p-3 m-auto';
+            stack.id = 'liftgate_status_element';
+            stack.className = 'collapse show hstack p-3 m-auto';
 
             const liftgate_icon = this.createSVGSymbolElement({
                 className: 'bi',
@@ -2411,6 +2700,53 @@
             return elements;
         }
 
+        createClimateStatusElements() {
+            const elements = []
+
+            const stack = document.createElement('div');
+            stack.id = 'climate_status_element';
+            stack.className = 'collapse show hstack p-3 m-auto gap-3';
+
+            // Display a power icon for the power status
+            const power_icon = this.createSVGSymbolElement({
+                id: 'power_status_icon',
+                className: 'bi m-auto',
+                height: '4em',
+                width: '4em',
+                symbolName: '#power',
+                symbolId: 'power_status'
+            });
+
+            // Display an animated countdown timer for the climate status
+            const countdown_timer = document.createElement('div');
+            countdown_timer.id = 'countdown_timer';
+            countdown_timer.className = 'text-center border border-2 rounded-3 p-2';
+            countdown_timer.innerText = '6:00';
+            countdown_timer.style.fontSize = '1.5em';
+            countdown_timer.style.fontWeight = 'bold';
+            countdown_timer.style.display = 'none';
+            countdown_timer.style.width = '4em';
+
+
+            // Display a fan icon for the blower status
+            const climate_icon = this.createSVGSymbolElement({
+                id: 'climate_status_icon',
+                className: 'bi m-auto',
+                height: '4em',
+                width: '4em',
+                symbolName: '#fan_on',
+                symbolId: 'climate_status'
+            });
+
+            stack.appendChild(power_icon);
+            stack.appendChild(countdown_timer);
+            stack.appendChild(climate_icon);
+
+            elements.push(stack);
+
+            return elements;
+        }
+
         createControlsContainer(options = {}) {
             const {
                 id,
@@ -2428,7 +2764,7 @@
             controls_div.className = 'ms-auto';
             const control_icon = this.createSVGSymbolElement({
                 symbolName: icon_name,
-                className: 'bi me-2',
+                className: 'bi me-1',
                 height: '1.7em',
                 width: '1.7em'
             });
@@ -2521,7 +2857,6 @@
 
             if (callback) {
                 button.addEventListener('click', callback);
-
 
 
                 // Add a second event listener to the button to disable it after the first click
@@ -2749,6 +3084,8 @@
                 id = "widget_id",
                 title = "WidgetTitle",
                 icon_name = "#battery",
+                icon_width = '1.75em',
+                icon_height = '1.75em',
                 content = [],
                 controls = [],
                 controls_icon_name = "#waves.right",
@@ -2759,7 +3096,7 @@
             // Create the main container div
             const outer_div = document.createElement('div');
             outer_div.id = id;
-            outer_div.className = 'border border-secondary rounded-4 shadow p-3 col';
+            outer_div.className = 'flex-fill border border-secondary rounded-4  p-3 col';
 
             const content_div = document.createElement('div');
             content_div.id = `${id}_content`;
@@ -2770,16 +3107,34 @@
 
             const icon_element = this.createSVGSymbolElement({
                 className: 'flex-shrink-0 bi me-3',
-                height: '1.75em',
-                width: '1.75em',
+                height: icon_height,
+                width: icon_width,
                 symbolName: icon_name
             });
             const title_element = document.createElement('h3');
-            title_element.className = 'g-col-6 fw-bold mb-0 fs-4 text-body-emphasis';
+            title_element.className = 'fw-bold mb-0 fs-4 text-body-emphasis';
             title_element.textContent = title;
+            title_element.display = 'block';
 
-            header_div.appendChild(icon_element);
-            header_div.appendChild(title_element);
+            const collapse_element = content.find(element => element.classList.contains('collapse'));
+            if (collapse_element) {
+
+                const accordion_button = document.createElement('button');
+                accordion_button.className = 'accordion accordion-flat accordion-button';
+                accordion_button.type = 'button';
+                accordion_button.setAttribute('data-bs-toggle', 'collapse');
+                accordion_button.setAttribute('data-bs-target', `#${collapse_element.id}`);
+                accordion_button.setAttribute('aria-expanded', 'false');
+                accordion_button.setAttribute('aria-controls', collapse_element.id);
+
+                accordion_button.appendChild(icon_element);
+                accordion_button.appendChild(title_element);
+                header_div.appendChild(accordion_button);
+            } else {
+                header_div.appendChild(icon_element);
+                header_div.appendChild(title_element);
+            }
+
             content_div.appendChild(header_div);
 
             if (controls.length > 0) {
@@ -2895,9 +3250,36 @@
             // Append the figureElement to containerDiv
             containerDiv.appendChild(figureElement);
 
-            // Create the div element for ms-auto row
+            // Create the div element for odometer and updated at
+            let divOdometerElement = document.createElement('div');
+            divOdometerElement.className = 'hstack';
+
+            let odometerIcon = document.createElement('i');
+            odometerIcon.className = 'bi bi-speedometer2 me-1';
+
+            let odometerElement = document.createElement('small');
+            odometerElement.className = 'text-body-secondary';
+            odometerElement.id = 'odometer';
+            odometerElement.textContent = '0 Mile(s)';
+
+            let updatedIcon = document.createElement('i');
+            updatedIcon.className = 'ms-auto bi bi-clock-history me-1';
+
+            let updatedElement = document.createElement('small');
+            updatedElement.className = 'text-body-secondary';
+            updatedElement.id = 'updated';
+            updatedElement.textContent = '5 minutes ago';
+
+            divOdometerElement.appendChild(odometerIcon);
+            divOdometerElement.appendChild(odometerElement);
+            divOdometerElement.appendChild(updatedIcon);
+            divOdometerElement.appendChild(updatedElement);
+
+            containerDiv.append(divOdometerElement);
+
+            // Create the div element for the status widgets
             let info_widgets_div = document.createElement('div');
-            info_widgets_div.className = 'ms-auto row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 py-2 gap-3 w-100';
+            info_widgets_div.className = 'ms-auto row row-cols-sm-2 row-cols-md-3 row-cols-lg-4 py-2 gap-3 w-100';
 
             // Battery Widget
             const batteryStatus = this.createBatteryStatusElements()
@@ -2972,9 +3354,41 @@
                 content: liftgate_status_elements
             });
 
+
+            // Climate Widget
+            const climate_unlock_controls = [this.createControlButton({
+                id: "btn_off_climate",
+                icon: {name: "#fan_off"},
+                tooltip: {title: "Climate Controls Off"},
+                callback: () => {
+                    ScriptableRequest.climateOff();
+                },
+                reset_event: 'climate_finished',
+                reset_value: 'off'
+            }), this.createControlButton({
+                id: "btn_on_climate",
+                icon: {name: "#fan_on"},
+                tooltip: {title: "Climate Controls On"},
+                callback: () => {
+                    ScriptableRequest.climateOn();
+                },
+                reset_event: 'climate_finished',
+                reset_value: 'on'
+            })]
+            const climate_status_elements = this.createClimateStatusElements();
+            const climateWidget = this.createVehicleInfoWidget({
+                id: 'climate_widget',
+                title: 'Climate',
+                icon_name: 'wind',
+                icon_width: '1.75em',
+                controls: climate_unlock_controls,
+                content: climate_status_elements
+            });
+
             info_widgets_div.appendChild(batteryWidget);
             info_widgets_div.appendChild(doorsWidget);
             info_widgets_div.appendChild(liftgateWidget);
+            info_widgets_div.appendChild(climateWidget);
 
             containerDiv.appendChild(info_widgets_div);
 
@@ -3005,20 +3419,13 @@
 
             element.classList.add('placeholder-glow');
 
-            // // Create a spinner element
-            // let spinner_div = document.createElement('div');
-            // spinner_div.className = 'd-flex justify-content-center position-absolute';
-            // spinner_div.style.top = '45%';
-            // spinner_div.style.left = '45%';
-            // let spinner = document.createElement('div');
-            //
-            // // place a spinner over the center of the element
-            // spinner.className = 'spinner-border text-secondary';
-            // spinner.style.width = '8rem';
-            // spinner.style.height = '8rem';
-            //
-            // spinner_div.appendChild(spinner);
-            // element.appendChild(spinner_div);
+            // Make all button elements unable to be clicked
+            element.querySelectorAll('button').forEach(button => {
+                // Save the original disabled state of the button to a new custom attribute
+                button.setAttribute("deplaceholder_enable", button.disabled);
+
+                button.disabled = true;
+            });
 
             //Make all text unable to be highlighted
             element.style.webkitTouchCallout = 'none';
@@ -3043,10 +3450,10 @@
 
             element.classList.remove('placeholder-glow');
 
-            // Remove spinner element
-            // element.querySelectorAll('.spinner-border').forEach(spinner => {
-            //     spinner.parentElement.remove();
-            // });
+            // Restore the original disabled state of the button
+            element.querySelectorAll('button').forEach(button => {
+                button.disabled = button.getAttribute("deplaceholder_enable") === 'true';
+            });
 
             //Make all text able to be highlighted
             element.style.webkitTouchCallout = 'text';
@@ -3109,6 +3516,8 @@
             // Create the h5 element
             let header = document.createElement('h5');
             header.className = `card-title vehicle-card-title ${create_placeholder ? 'col-6 placeholder placeholder-lg' : ''}`;
+            header.style.display = 'block';
+
             header.textContent = create_placeholder ? '' : vehicle.nickName;
 
             // Create the description element
@@ -3123,6 +3532,12 @@
             let vin_label = document.createElement('small');
             vin_label.className = `${create_placeholder ? 'col-8 placeholder' : 'text-body-secondary'}`;
             vin_label.textContent = create_placeholder ? '' : `VIN: ${vehicle.vin}`;
+
+            if (!create_placeholder) {
+                header.classList.add('responsive-text')
+                vin_label.classList.add('responsive-text')
+                vin_label.style.display = 'block';
+            }
 
             // Create the button column
             let button_column = document.createElement('div');
@@ -3146,8 +3561,9 @@
             row.appendChild(button_column);
             card.appendChild(row);
 
-            select_button.onclick = function () {
-                ScriptableRequest.selectVehicle(vehicle.vin);
+            select_button.onclick = () => {
+                window.onScriptableMessage({type: "navigate", value: 'vehicle_info'});
+                setTimeout(() => ScriptableRequest.selectVehicle(vehicle.vin), 1000);
             }
 
             outer_column.appendChild(card);
@@ -3176,6 +3592,275 @@
             containerDiv.appendChild(divRowElement);
 
             // Convert the container div to HTML string and return
+            return containerDiv;
+        }
+
+        createCustomizeContainer(id) {
+            // Import create_root from ReactDOM
+            const {createRoot} = ReactDOM;
+
+            let display = 'none';
+
+            // Create the main container div to be our React root
+            const existing_container = document.getElementById(id);
+            if (existing_container) {
+                display = existing_container.style.display;
+                existing_container.remove();
+            }
+
+            let containerDiv = document.createElement('div');
+            containerDiv.id = id;
+            containerDiv.className = 'container';
+            containerDiv.style.display = display;
+
+            // Initialize the React root
+            const root = createRoot(containerDiv);
+
+            const CustomizeControl = ({type, options, value, onOptionChange}) => {
+                if (type === 'number') {
+                    return (
+                        <input
+                            className="form-control"
+                            type="digits"
+                            inputMode="numeric"
+                            value={value}
+                            onChange={(e) => {
+                                onOptionChange(e.target.value)
+                            }}
+                            onKeyPress={(e) => {
+                                if (!/[0-9]/.test(e.key)) {
+                                    e.preventDefault();
+                                }
+                            }}
+                        />
+                    );
+                } else if (type === 'boolean') {
+                    return (
+                        <div className="form-control">
+                            <div className="form-check form-switch form-check-reverse">
+                                <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    checked={value}
+                                    onChange={(e) => onOptionChange(e.target.checked)}
+                                />
+                            </div>
+                        </div>
+                    );
+                } else if (type === 'color') {
+                    return (
+                        <input
+                            type="color"
+                            className="form-control form-control-color"
+                            value={value}
+                            onChange={(e) => onOptionChange(e.target.value)}
+                        />
+                    );
+                } else if (type === 'select' && options) {
+                    return (
+                        options.map((option, index) => (
+                            <button
+                                key={index}
+                                type="button"
+                                className={`btn ${selectedOption === option ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => onOptionChange(option)}
+                            >
+                                {option}
+                            </button>
+                        ))
+                    );
+                }
+            }
+
+            const CustomizeCard = ({type, label, description, value, options = [], onOptionChange}) => {
+
+                return (
+                    <div className="border-bottom py-3 flex-fill">
+                        <div className="card-body vstack gap-2">
+                            <div className="input-group" role="group">
+                                <label className="input-group-text">{label}</label>
+                                <CustomizeControl
+                                    type={type}
+                                    label={label}
+                                    options={options}
+                                    value={value}
+                                    onOptionChange={onOptionChange}
+                                />
+                            </div>
+                            <small className="card-text text-muted">{description}</small>
+                        </div>
+                    </div>
+                );
+            }
+
+            const CustomizeCards = ({customizations = {values: {}}}) => {
+                const states = {};
+                const cards = [];
+
+                if (customizations && customizations.values) {
+                    // Create state for each option
+                    for (let [option_name, option_value] of Object.entries(customizations.values)) {
+                        // Destructure the customization description object
+                        const {type, label, options, description} = customizations.descriptions[option_name];
+
+                        // Check if the description includes "seconds" and the type is a number
+                        let multiplier = 1;
+
+                        if (description.includes('seconds') && type === 'number') {
+                            multiplier = 1 / 1000;
+                        } else if (description.includes('minutes') && type === 'number') {
+                            multiplier = 1 / 1000 / 60;
+                        }
+
+                        // Now you can use both option_name and option_value in your loop
+                        const [option, setOption] = React.useState(multiplier === 1 ? option_value : option_value * multiplier);
+                        states[option_name] = {value: option, set: setOption};
+
+                        states[option_name].handle = (value) => {
+                            setOption(value);
+                            const query_value = encodeURIComponent(multiplier === 1 ? value : value / multiplier);
+                            window.location.href = `#customize?${option_name}=${query_value}`;
+                        }
+
+                        cards.push(
+                            <CustomizeCard
+                                type={type}
+                                label={label}
+                                description={description}
+                                options={options}
+                                value={option}
+                                onOptionChange={states[option_name].handle}
+                            />
+                        );
+                    }
+                } else {
+                    // Make an array of length 4
+                    cards.push(new Array(3).fill(null).map(() => (
+                        <div className="border-bottom py-3 mb-3 flex-fill">
+                            <div className="card-body placeholder-glow vstack gap-2">
+                                <div className="input-group" role="group">
+                                <span className="input-group-text py-2">
+                                        <span className="placeholder px-5"></span>
+                                </span>
+                                    <span className="form-control py-1">
+                                    <span className="placeholder placeholder-lg w-100"></span>
+                                </span>
+                                </div>
+                                <small className="card-text text-muted d-flex flex-wrap gap-2">
+                                    <span className="placeholder col-1"></span>
+                                    <span className="placeholder col-2"></span>
+                                    <span className="placeholder col-4"></span>
+                                    <span className="placeholder col-1"></span>
+                                </small>
+                            </div>
+                        </div>)
+                    ));
+                }
+
+                return (
+                    <div id="customize_cards" className="vstack">
+                        <h1 className='text-center py-3 border-bottom'>Customization Options</h1>
+                        {cards}
+                    </div>
+                );
+            }
+
+            // Render the CustomizeApp component to the React root
+            root.render(<CustomizeCards customizations={this.customizations}/>);
+
+            // Convert the container div to HTML string and return
+            return containerDiv;
+        }
+
+        createShortcutsContainer(id) {
+            // Import create_root from ReactDOM
+            const {createRoot} = ReactDOM;
+
+            let containerDiv = document.createElement('div');
+            containerDiv.id = id;
+            containerDiv.className = 'container';
+
+            // Initialize the React root
+            const root = createRoot(containerDiv);
+
+            const ShortcutCard = ({shortcut, label, href, icon_src}) => {
+                mql(href, {
+                    apiKey: "96zgchEI9BYlkC6z3u1j4xDleeH0moY1HmG29pZ7",
+                    waitUntil: "auto",
+                }).then(result => {
+                    document.getElementById(`${shortcut}_img`).src = result.data.image.url;
+                    document.getElementById(`${shortcut}_label`).textContent = result.data.title;
+                }).catch(console.error);
+
+
+                return (
+                    <div className="flex-fill card p-0 m-0 shadow text-bg-light" style={{width: "20em"}}>
+                        <div className="card-body p-4">
+                            <a id={`${shortcut}_link`}
+                               className="vstack text-center gap-3 link-underline link-underline-opacity-0 stretched-link"
+                               href={href}
+                               style={{color: "var(--bs-body)"}}>
+                                <img className="shadow m-auto" id={`${shortcut}_img`} src={icon_src} alt={shortcut}
+                                     style={{width: "3em", borderRadius: "4px"}}></img>
+                                <h4 className={"m-0 p-0"} id={`${shortcut}_label`}>{label}</h4>
+                                <button className="btn btn-primary m-auto mt-3" style={{width: "14em"}}>Get Shortcut</button>
+
+                            </a>
+                        </div>
+                    </div>
+                );
+            }
+
+            const ShortcutCards = ({shortcuts = {}}) => {
+                const cards = [];
+                if (Object.keys(shortcuts).length > 0) {
+                    for (let shortcut in shortcuts) {
+                        cards.push(
+                            <ShortcutCard
+                                shortcut={shortcut}
+                                href={shortcuts[shortcut].location}
+                                icon_src={shortcuts[shortcut].icon}
+                                label={shortcuts[shortcut].label}
+                            />
+                        );
+                    }
+                } else {
+                    // Make an array of length 4
+                    cards.push(new Array(3).fill(null).map(() => (
+                        <div className="border-bottom py-3 mb-3 flex-fill">
+                            <div className="card-body placeholder-glow vstack gap-2">
+                                <div className="input-group" role="group">
+                                    <span className="input-group-text py-2">
+                                        <span className="placeholder px-5"></span>
+                                    </span>
+                                    <span className="form-control py-1">
+                                        <span className="placeholder placeholder-lg w-100"></span>
+                                    </span>
+                                </div>
+                                <small className="card-text text-muted d-flex flex-wrap gap-2">
+                                    <span className="placeholder col-1"></span>
+                                    <span className="placeholder col-2"></span>
+                                    <span className="placeholder col-4"></span>
+                                    <span className="placeholder col-1"></span>
+                                </small>
+                            </div>
+                        </div>)
+                    ));
+                }
+
+                return (
+                    <div id="shortcut_cards" className="vstack">
+                        <h1 className='text-center py-3 border-bottom'>Siri Shortcuts<br/><small
+                            className='text-secondary' style={{fontSize: 12}}>Install these shortcuts to control your
+                            vehicle using
+                            Siri.</small></h1>
+
+                        <div className='d-flex flex-wrap gap-4'>{cards}</div>
+
+                    </div>
+                );
+            }
+            root.render(<ShortcutCards shortcuts={shortcut_links}/>);
             return containerDiv;
         }
 
@@ -3419,6 +4104,17 @@
             }));
 
             debug_menu_items.push(this.createDebugMenuItem({
+                text: 'Debug Customizations',
+                callback: function () {
+                    const message = {
+                        type: 'customizations',
+                        value: debug_data.customizations
+                    }
+                    window.onScriptableMessage(message);
+                }
+            }));
+
+            debug_menu_items.push(this.createDebugMenuItem({
                 text: 'Lock Success',
                 callback: function () {
                     const message = {
@@ -3467,23 +4163,25 @@
     }
 
     const app = new SolterraConnectWebApp();
-    document.addEventListener('DOMContentLoaded', function () {
+
+    if (document.readyState === "loading") {  // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", function () {
+            // console.log("Loaded");
+            app.update_container_visibilities();
+            // app.createDebugMenu();
+        });
+    } else {  // `DOMContentLoaded` has already fired
+        // console.log("Loaded");
         app.update_container_visibilities();
         // app.createDebugMenu();
-    });
-
-    // // Add an event listener for when the window location changes
-    // window.addEventListener('popstate', function (event) {
-    //     // Display the current URL in the toast
-    //     app.showToast({
-    //         title: 'Navigation',
-    //         message: `Navigated to ${window.location.href.split('#').pop()}`
-    //     })
-    // });
+    }
 
     window.onScriptableMessage = (data) => {
-
         switch (data.type) {
+            case "navigate":
+                app.navigateToPage(data.value);
+                break;
+
             case "vehicle_status":
                 app.vehicle_status = data.value;
                 app.updateVehicleStatus(app.vehicle_status);
@@ -3499,6 +4197,11 @@
                 sessionStorage.setItem('solterraConnectUser', JSON.stringify(app.user));
                 app.hideModals({dispose: true});
                 app.update_container_visibilities();
+                break;
+
+            case "customizations":
+                app.customizations = data.value;
+                app.main.appendChild(app.createCustomizeContainer('customizations'));
                 break;
 
             case "alert":
@@ -3521,7 +4224,12 @@
                 });
 
                 // trigger an event called "lock_success" to be sent to the window
-                window.dispatchEvent(new CustomEvent('lock_finished', {detail: {message: 'Vehicle doors have been locked successfully.', value: 'locked'}}));
+                window.dispatchEvent(new CustomEvent('lock_finished', {
+                    detail: {
+                        message: 'Vehicle doors have been locked successfully.',
+                        value: 'locked'
+                    }
+                }));
 
                 break;
 
@@ -3535,7 +4243,12 @@
                 });
 
                 // trigger an event called "lock_success" to be sent to the window
-                window.dispatchEvent(new CustomEvent('lock_finished', {detail: {message: 'Vehicle doors have been unlocked successfully.', value: 'unlocked'}}));
+                window.dispatchEvent(new CustomEvent('lock_finished', {
+                    detail: {
+                        message: 'Vehicle doors have been unlocked successfully.',
+                        value: 'unlocked'
+                    }
+                }));
 
                 break;
 
@@ -3549,7 +4262,48 @@
                 });
 
                 // trigger an event called "lock_success" to be sent to the window
-                window.dispatchEvent(new CustomEvent('liftgate_lock_finished', {detail: {message: 'Vehicle liftgate has been locked successfully.', value: 'locked'}}));
+                window.dispatchEvent(new CustomEvent('liftgate_lock_finished', {
+                    detail: {
+                        message: 'Vehicle liftgate has been locked successfully.',
+                        value: 'locked'
+                    }
+                }));
+
+            case "climate_on_success":
+                app.showToast({
+                    title: 'Climate Controls On',
+                    message: 'The climate controls have been turned on.  They will turn off in 20 minutes.',
+                    duration: 5000,
+                    autohide: true,
+                    icon: 'wind'
+                });
+
+                // trigger an event called "lock_success" to be sent to the window
+                window.dispatchEvent(new CustomEvent('climate_finished', {
+                    detail: {
+                        message: 'Climate controls have been turned on successfully.',
+                        value: 'on'
+                    }
+                }));
+
+                break;
+
+            case "climate_off_success":
+                app.showToast({
+                    title: 'Climate Controls On',
+                    message: 'The climate controls have been turned off.',
+                    duration: 5000,
+                    autohide: true,
+                    icon: 'wind'
+                });
+
+                // trigger an event called "lock_success" to be sent to the window
+                window.dispatchEvent(new CustomEvent('climate_finished', {
+                    detail: {
+                        message: 'Climate controls have been turned off successfully.',
+                        value: 'off'
+                    }
+                }));
 
                 break;
 
@@ -3563,16 +4317,25 @@
                 });
 
                 // trigger an event called "lock_success" to be sent to the window
-                window.dispatchEvent(new CustomEvent('liftgate_lock_finished', {detail: {message: 'Vehicle liftgate has been unlocked successfully.', value: 'unlocked'}}));
+                window.dispatchEvent(new CustomEvent('liftgate_lock_finished', {
+                    detail: {
+                        message: 'Vehicle liftgate has been unlocked successfully.',
+                        value: 'unlocked'
+                    }
+                }));
 
                 break;
 
             default:
                 console.log(`Unknown message type: ${data.type}`);
+                try {
+                    log(data);
+                } catch (e) {
+                }
                 break;
         }
+    }
 
-    };
 </script>
 </body>
 </html>
