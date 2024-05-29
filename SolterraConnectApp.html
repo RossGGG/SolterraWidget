@@ -1250,7 +1250,7 @@
                 return;
             }
 
-            const authorizationUrl = `${oid_config.issuer.replace("oauth2", "json")}/authenticate`;
+            const authorizationUrl = `${oid_config.issuer.replace("oauth2", "json")}/authenticate?authIndexType=service&authIndexValue=OneAppSignIn`;
 
             // In Scriptable, you might need to handle this redirection differently, possibly opening a web view or Safari
             // console.log(`Please visit this URL to authorize: ${authorizationUrl}`);
@@ -2240,7 +2240,9 @@
                 spellcheck,
                 autocapitalize,
                 inputMethod,
-                autofocus = false
+                autofocus = false,
+                pattern,
+                title
             } = options;
 
             const group = document.createElement('div');
@@ -2263,6 +2265,14 @@
             input.spellcheck = spellcheck;
             input.inputMethod = inputMethod;
             input.autofocus = autofocus;
+
+            if(pattern) {
+                input.pattern = pattern;
+            }
+
+            if(title) {
+                input.title = title;
+            }
 
             group.appendChild(input);
             group.appendChild(labelElement);
@@ -2401,13 +2411,15 @@
             const email_group = this.createLabeledInput({
                 id: 'emailInput',
                 label: 'Email Address/Phone Number',
-                type: 'email',
+                type: 'text',
                 placeholder: 'name@example.com',
                 required: true,
                 spellcheck: false,
                 autocapitalize: 'off',
                 autocomplete: 'username',
-                autofocus: true
+                autofocus: true,
+                pattern: '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})|(\\+[0-9]{1,3}[-. ]?(?:\\([0-9]+\\)[-. ]?)?[0-9]{1,4}[-. ]?[0-9]{1,4}[-. ]?[0-9]{1,9})',
+                title: 'Please enter a valid email address or phone number'
             });
 
             const password_group = this.createLabeledInput({
@@ -3995,7 +4007,8 @@
             const menu = document.createElement('ul');
             menu.className = 'dropdown-menu text-small shadow';
 
-            const menu_entries = ["Profile", "DIV", "Sign Out"]
+            // const menu_entries = ["Profile", "DIV", "Sign Out"]
+            const menu_entries = ["Sign Out"]
 
             const menu_items = menu_entries.map(entry => {
                 const menu_item = document.createElement('li');
