@@ -4,8 +4,8 @@
 
 const WebApp = null;
 
-const CONSOLE_DEBUG = true;
-const FILE_LOGGING = true;
+const CONSOLE_DEBUG = false;
+const FILE_LOGGING = false;
 
 let CONTEXT_NAME;
 
