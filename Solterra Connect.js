@@ -4,8 +4,20 @@
 
 const WebApp = null;
 
-const DEBUG= true;
-const logName = `${Script.name()}.${Device.name()}.${Device.model()}.${Date.now()}.log`;
+const CONSOLE_DEBUG = true;
+const FILE_LOGGING = true;
+
+let CONTEXT_NAME;
+
+if (config.runsInWidget) {
+    CONTEXT_NAME = config.widgetFamily;
+} else if (config.runsWithSiri) {
+    CONTEXT_NAME = "Shortcut";
+} else if (config.runsInApp) {
+    CONTEXT_NAME = "App";
+}
+
+const logName = `${Script.name()}.${Device.name()}.${CONTEXT_NAME}.${Date.now()}.log`;
 
 class DebugLogger {
     // Handle writing log message to the log file
@@ -18,7 +30,12 @@ class DebugLogger {
         } catch (e) {
             fm = FileManager.local();
         }
-        const path = fm.joinPath(fm.documentsDirectory(), `${Script.name()}/logs/${logName}`);
+        const log_dir = fm.joinPath(fm.documentsDirectory(), `${Script.name()}/logs`);
+        if (!fm.fileExists(log_dir)) {
+            fm.createDirectory(log_dir, true);
+        }
+
+        const path = fm.joinPath(log_dir, logName);
 
         let log = '';
 
@@ -31,26 +48,35 @@ class DebugLogger {
         fm.writeString(path, log);
     }
 
-    static log(message, console=DEBUG, level='log') {
-        if (!["log", "warn", "error"].includes(level)) {
-            level = 'log';
+    static log(message, to_console = CONSOLE_DEBUG, options = {}) {
+        options = {...{level: 'log', to_file: FILE_LOGGING}, ...options};
+        if (!["log", "warn", "error"].includes(options.level)) {
+            options.level = 'log';
         }
 
-        if (console) {
-            console[level](logMessage);
+        if (to_console) {
+            try {
+                console[options.level](message);
+            } catch (e) {
+                console.error(`Log failed to write to console at level ${options.level}.`);
+            }
         }
 
-        this._write_log(message, level).then();
+        if (options.to_file) {
+            this._write_log(message, options.level).then();
+        }
     }
 
-    static error(message, console) {
-        this.log(message, console, 'error');
+    static error(message, to_console) {
+        this.log(message, to_console, 'error');
     }
 
-    static warn(message, console) {
-        this.log(message, console, 'warn');
+    static warn(message, to_console) {
+        this.log(message, to_console, 'warn');
     }
 }
+
+DebugLogger.log("Run @ " + new Date().toLocaleString(), false);
 
 class LoginError extends Error {
     constructor(message) {
@@ -381,7 +407,7 @@ class ToybaruAuth {
             auth_code = null,
             tokens = null,
             configuration = {},
-            refresh_secs = 300
+            refresh_secs = 3000
         } = options;
 
         this.callback = callback;
@@ -617,7 +643,7 @@ class ToybaruAuth {
 
         this.tokens = await this.Utils.extract_tokens(tokens_payload, await this.fetch_jwt_keys(options), this.callback);
 
-        return await this.refresh_tokens();
+        return this.tokens;
     }
 
     async fetch_jwt_keys(options = {}) {
@@ -691,12 +717,15 @@ class ToybaruAuth {
                         }
                     }
 
+                    DebugLogger.log("Clearing saved tokens.", true)
+                    DebugLogger.log(JSON.stringify(this.tokens, undefined, 4));
+
                     // Clear tokens and auth code
                     this.tokens = null;
                     this.auth_code = null;
 
                     if (this.callback) {
-                        DebugLogger.log("Clearing saved tokens.", true)
+                        DebugLogger.log(JSON.stringify(this.tokens, undefined, 4));
                         await this.callback(this.tokens);
                     }
 
@@ -724,9 +753,14 @@ class ToybaruAuth {
             throw new NotLoggedInError("No refresh token found.")
         }
 
+        DebugLogger.log("Refreshing tokens.")
+        let refresh_jwt = this.Utils.unpack_jwt(this.tokens.refresh_token);
+        // DebugLogger.log(JSON.stringify(refresh_jwt, undefined, 4));
+        DebugLogger.log(`Refresh token expires at: ${new Date(refresh_jwt.jwt.exp * 1000).toLocaleString()}`)
+
         // Request tokens
         const params = {
-            "scope": "profile",
+            "scope": this.configuration.scope,
             "client_id": this.configuration.client_id,
             "grant_type": "refresh_token",
             "response_type": "token",
@@ -747,15 +781,18 @@ class ToybaruAuth {
 
         } else {
             const jwt_keys = await this.fetch_jwt_keys(options);
-            
+
             const old_refresh_token = this.tokens.refresh_token;
 
             // Merge tokens_payload with existing tokens
             tokens_payload = {...this.tokens, ...tokens_payload};
 
             this.tokens = await this.Utils.extract_tokens(tokens_payload, jwt_keys, this.callback);
-            
-            DebugLogger.log(`refresh_token updated: ${this.tokens.refresh_token !== old_refresh_token}`, true)
+
+            DebugLogger.log(`Refresh_token updated: ${this.tokens.refresh_token !== old_refresh_token}`, true)
+
+            refresh_jwt = this.Utils.unpack_jwt(this.tokens.refresh_token);
+            DebugLogger.log(`New refresh token expires at: ${new Date(refresh_jwt.jwt.exp * 1000).toLocaleString()}`)
 
             return this.tokens;
         }
@@ -821,6 +858,8 @@ class ToybaruAuth {
             new_tokens.expires_at = new_tokens.updated_at + new_tokens.expires_in * 1000;
 
             if (callback) {
+                DebugLogger.log("Saving extracted tokens");
+                DebugLogger.log(JSON.stringify(new_tokens, undefined, 4));
                 await callback(new_tokens);
             }
 
@@ -853,14 +892,22 @@ class ToybaruAuth {
             }
         }
 
-        static async parseJwt(payload, jwks, verify = true) {
-            let jwt_payloads = payload.split(".");
+        static unpack_jwt(payload) {
             try {
-                let data = {
+                let jwt_payloads = payload.split(".");
+                return {
                     headers: JSON.parse(this.base64UrlDecode(jwt_payloads[0])),
                     jwt: JSON.parse(this.base64UrlDecode(jwt_payloads[1])),
                     signature: jwt_payloads[2]
-                }
+                };
+            } catch (error) {
+                DebugLogger.error(error, true);
+            }
+        }
+
+        static async parseJwt(payload, jwks, verify = true) {
+            try {
+                let data = this.unpack_jwt(payload);
 
                 if (!verify) {
                     return data.jwt;
@@ -1465,7 +1512,6 @@ class ToybaruApp {
 
             try {
                 await this.client.auth.check_tokens();
-                await this.client.auth.refresh_tokens();
             } catch (e) {
 
             }
@@ -1567,6 +1613,11 @@ class ToybaruApp {
                 // console.log(data);
                 if (data.login && data.tokenId) {
                     this.client.auth.tokenId = data.tokenId;
+
+                    if (data.deviceId) {
+                        this.client.device_id = data.deviceId;
+                    }
+                    
                     this.client.auth.acquire_tokens().then(async (result) => {
                         const message = {
                             type: "user",
@@ -2583,11 +2634,11 @@ async function draw_meter(options = {}) {
 
                   ctx.save();
                   let fontSize = 45*scale_factor;
-                  document.getElementById('logs').innerText += "\\n" + fontSize;
+                  // document.getElementById('logs').innerText += "\\n" + fontSize;
                   ctx.font = \`bold $\{fontSize\}px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif\`;
                   
                   //fontSize = fitTextToWidth(ctx, lines[0], 2*(radius - weight)-15);
-                  document.getElementById('logs').innerText += "\\n" + fontSize;
+                  // document.getElementById('logs').innerText += "\\n" + fontSize;
                   
                   // Align text for centering
                   ctx.textAlign = 'center'; // Center horizontally
@@ -2601,7 +2652,7 @@ async function draw_meter(options = {}) {
                     }
                     return font_size;
                   });
-                  document.getElementById('logs').innerText += "\\n" + JSON.stringify(lineHeights);
+                  // document.getElementById('logs').innerText += "\\n" + JSON.stringify(lineHeights);
                   
                   let currentY = label_origin.y - additionalHeight/4;
 
@@ -2837,7 +2888,7 @@ async function draw_meter(options = {}) {
                   newSize -= 1; // Decrement the font size
               } while (newSize > 0);
               
-              document.getElementById('logs').innerText += "\\n" + newSize;
+              // document.getElementById('logs').innerText += "\\n" + newSize;
 
               // Return the adjusted size
               return newSize;

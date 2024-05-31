@@ -1107,6 +1107,31 @@
         }
     }
 
+    class Utilities {
+        static getAbbreviatedTimeZone() {
+            const date = new Date();
+            const dateTimeFormat = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' });
+            const parts = dateTimeFormat.formatToParts(date);
+
+            const timeZoneName = parts.find(part => part.type === 'timeZoneName');
+            return timeZoneName ? timeZoneName.value : '';
+        }
+
+        static generateUUID() {
+            // Generate an array of 16 random bytes
+            const array = new Uint8Array(16);
+            crypto.getRandomValues(array);
+
+            // Adjust certain bits according to RFC 4122, section 4.4
+            array[6] = (array[6] & 0x0f) | 0x40; // Version 4
+            array[8] = (array[8] & 0x3f) | 0x80; // Variant 1
+
+            // Convert bytes to hexadecimal and format as UUID
+            const hex = Array.from(array).map(byte => byte.toString(16).padStart(2, '0'));
+            return `${hex[0]}${hex[1]}${hex[2]}${hex[3]}-${hex[4]}${hex[5]}-${hex[6]}${hex[7]}-${hex[8]}${hex[9]}-${hex[10]}${hex[11]}${hex[12]}${hex[13]}${hex[14]}${hex[15]}`;
+        }
+    }
+
     class ScriptableRequest {
         static vehicleStatus() {
             this._send_request('get_vehicle_status=1')
@@ -1152,8 +1177,8 @@
             this._send_request('logout=1');
         }
 
-        static login(tokenId) {
-            this._send_request(`login=1&tokenId=${tokenId}`);
+        static login(tokenId, deviceId) {
+            this._send_request(`login=1&tokenId=${tokenId}&deviceId=${deviceId}`);
         }
 
         static _send_request(request) {
@@ -1184,7 +1209,11 @@
                 // }
             },
         }
-        tokenId = null;
+
+        constructor() {
+            this.deviceId = Utilities.generateUUID();
+            this.tokenId = null;
+        }
 
         // Discover OIDC configuration
         async discoverOIDCConfig(realm = null) {
@@ -1338,6 +1367,19 @@
             this.updateUser();
 
             this.auth = new ToybaruAuth();
+
+            this.devicePrint = {
+                appId: 'com.subaru.oneapp',
+                biometricEnabled: false,
+                deviceType: 'Android',
+                emulator: 'real',
+                hardwareId: this.auth.deviceId,
+                language: 'en-US',
+                model: 'Galaxy S7',
+                name: 'Scriptable',
+                systemOS: '33',
+                timeZone: Utilities.getAbbreviatedTimeZone()
+            }
 
             document.body.appendChild(this.main);
 
@@ -1755,6 +1797,9 @@
 
                                 result = {...result, ...await this.showSignIn(this.createSignInCredentialsForm, 'signInUsernameModal')};
 
+                            } else if (callback.output.find(output => output.value === "devicePrint")) {
+                                callback.input[0].value = JSON.stringify(this.devicePrint);
+                                console.log(`Device Print: ${callback.input[0].value}`);
                             }
                         }
                         break;
@@ -1791,7 +1836,7 @@
                     this.auth.authenticate_user({handle_callbacks: this.handle_auth_callbacks.bind(this)}).then(() => {
                         if (this.auth.tokenId) {
                             // this.user.token_cookie = result;
-                            ScriptableRequest.login(this.auth.tokenId);
+                            ScriptableRequest.login(this.auth.tokenId, this.devicePrint.hardwareId);
                             this.hideModals({disponse: true});
                         }
                     });
