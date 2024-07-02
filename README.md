@@ -4,7 +4,7 @@ The main use for this script is to provide iOS Widgets and Siri Shortcut capabil
 ### Setup
 After you have installed the [Scriptable app](https://scriptable.app), you can use this link to install the Solterra Connect script from this repo.
 
-[![Download with ScriptDude](https://scriptdu.de/download.svg)](https://scriptdu.de?name=Solterra%20Connect&source=https%3A%2F%2Fgithub.com%2FRossGGG%2FSolterraWidget%2Fblob%2Fmain%2FSolterra%2520Connect.js&docs=https%3A%2F%2Fgithub.com%2FRossGGG%2FSolterraWidget%2Fblob%2Fmain%2FREADME.MD)
+[![Download with ScriptDude](https://scriptdu.de/download.svg)](https://scriptdu.de?name=Solterra%20Connect&source=https%3A%2F%2Fraw.githubusercontent.com%2FRossGGG%2FSolterraWidget%2Fmain%2FSolterra%2520Connect.js&docs=https%3A%2F%2Fgithub.com%2FRossGGG%2FSolterraWidget%2Fblob%2Fmain%2FREADME.md)
 
 ## Widgets
 Currently, only the lockscreen (accessory) widgets and the small widget are available.  The widget appearance(s) can be customized in the web app.
