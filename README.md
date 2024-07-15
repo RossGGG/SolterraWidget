@@ -37,9 +37,9 @@ The included shortcuts can be used a a template for building your own shotcuts, 
 | Check My Car Charge | Checks the vehicle status and replies with the estimated remaining charge time |
 
 ## Web App
-The script include a web app which provides a way for the user to login to their Solterra Connect account and select a vehicle to associate with the script.
-The app provides a basic interface to view the car status, send commands to the car.
-Users can also use the app to customize the widget appearance, and install the supported Siri Shortcuts to their device.
+The script includes a web app, which provides a way for the user to login to their Solterra Connect account and select a vehicle to associate with the script.
+The app provides a basic interface to view the car statu and send commands to the car.
+Users can also use the app to customize the widget appearance and behavior, and to install the supported Siri Shortcuts to their device.
 
 <img src="https://github.com/RossGGG/SolterraWidget/assets/5018716/469867bc-966e-4ecd-8d49-fcba5bf90bff" alt="Web App Login" height=300 />
 <img src="https://github.com/RossGGG/SolterraWidget/assets/5018716/c37366d2-193c-4cea-8138-46d08f0a76b4" alt="Web App - Vehicle Status" height=300 />
