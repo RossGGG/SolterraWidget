@@ -1148,7 +1148,7 @@
         }
 
         static vehicleStatus() {
-            this._send_request('get_vehicle_status=1')
+            this._send_request('get_vehicle_status=1&force_refresh=1')
         }
 
         static vehicleList() {
@@ -1370,6 +1370,9 @@
 
     class SolterraConnectWebApp {
         constructor() {
+            this.nativeSessionReady = !/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent);
+            this.loginPending = false;
+            this.authGeneration = 0;
             this.regions = [
                 {text: "USA", value: "US"},
                 {text: "Canada", value: "CA"},
@@ -1866,18 +1869,26 @@
 
         check_login() {
             if (/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent)) {
+                // Native saved credentials are authoritative; do not start a second login during startup.
+                if (!this.nativeSessionReady) return false;
                 // iOS device using WKWebView (Scriptable)
                 if (!this.user || Object.keys(this.user).length === 0) {
                     for (let element of this.main.getElementsByClassName('container')) {
                         element.style.display = 'none';
                     }
+                    if (this.loginPending) return false;
+                    this.loginPending = true;
+                    const generation = this.authGeneration;
                     this.auth.authenticate_user({handle_callbacks: this.handle_auth_callbacks.bind(this)}).then(() => {
+                        if (generation !== this.authGeneration || Object.keys(this.user || {}).length) return;
                         if (this.auth.tokenId) {
                             // this.user.token_cookie = result;
                             ScriptableRequest.login(this.auth.tokenId, this.devicePrint.hardwareId);
                             this.hideModals({disponse: true});
                         }
                     }).catch(() => {
+                        if (generation !== this.authGeneration || Object.keys(this.user || {}).length) return;
+                        this.loginPending = false;
                         this.showToast({title: 'Sign-in unavailable', message: 'Could not contact the login service. Check your connection and tap Home to retry.', duration: 10000, autohide: true});
                     });
 
@@ -1887,6 +1898,22 @@
             }
 
             return true;
+        }
+
+        updateRefreshState(state) {
+            this.refreshState = state;
+            const label = document.getElementById('charging_refresh_message');
+            const spinner = document.getElementById('charging_refresh_spinner');
+            const button = document.getElementById('charging_refresh_button');
+            if (!label) return;
+            label.textContent = {
+                pending: 'Requesting fresh charging data… Showing last available reading.',
+                updated: 'Charging data updated from a newer vehicle reading.',
+                timeout: 'No newer charging reading yet. Showing last available data; try again later.',
+                error: 'Could not refresh charging data. Showing last available data.'
+            }[state] || '';
+            spinner.hidden = state !== 'pending';
+            button.disabled = state === 'pending';
         }
 
         update_container_visibilities() {
@@ -1905,6 +1932,7 @@
                         case 'vehicle_info':
                             this.main.appendChild(this.createVehicleInfoContainer(containerId));
                             this.updateVehicleStatus(this.vehicle_status);
+                            this.updateRefreshState('pending');
                             ScriptableRequest.vehicleStatus();
                             break;
 
@@ -3491,6 +3519,17 @@
 
             this.applyPlaceholder(containerDiv)
 
+            const refreshRow = document.createElement('div');
+            refreshRow.className = 'd-flex align-items-center gap-2 my-3';
+            refreshRow.setAttribute('role', 'status');
+            refreshRow.setAttribute('aria-live', 'polite');
+            refreshRow.innerHTML = '<span id="charging_refresh_spinner" class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span><small id="charging_refresh_message" class="flex-grow-1"></small><button id="charging_refresh_button" class="btn btn-outline-secondary btn-sm" type="button">Refresh charging</button>';
+            refreshRow.querySelector('button').addEventListener('click', () => {
+                this.updateRefreshState('pending');
+                ScriptableRequest.vehicleStatus();
+            });
+            containerDiv.prepend(refreshRow);
+
             // Convert the container div to HTML string and return
             return containerDiv;
         }
@@ -4292,6 +4331,11 @@
             case "vehicle_status":
                 app.vehicle_status = data.value;
                 app.updateVehicleStatus(app.vehicle_status);
+                if (app.refreshState) app.updateRefreshState(app.refreshState);
+                break;
+
+            case "charging_refresh":
+                app.updateRefreshState(data.value);
                 break;
 
             case "vehicle_list":
@@ -4300,6 +4344,9 @@
                 break;
 
             case "user":
+                app.nativeSessionReady = true;
+                app.authGeneration += 1;
+                app.loginPending = false;
                 app.user = data.value;
                 sessionStorage.setItem('solterraConnectUser', JSON.stringify(app.user));
                 app.hideModals({dispose: true});

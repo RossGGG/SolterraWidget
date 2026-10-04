@@ -77,3 +77,12 @@ the native session used for the subsequent token exchange. The bridge still
 needs live verification. Vehicle discovery and remote commands also need live
 validation; this change does not port the integration's GraphQL features or
 empty-vehicle-list account bootstrap.
+
+The WebView waits for Scriptable's saved-session handoff before starting login,
+and suppresses failures from superseded login attempts. Opening Home requests
+fresh charging data once while showing the last available reading and a pending
+indicator. “Refresh charging” repeats that request. The current realtime endpoint
+uses an empty JSON body, device/VIN headers, and the returned `appRequestNo` for
+status polling. Polling stops after 12 attempts, five seconds apart; only a newer
+vehicle acquisition timestamp counts as updated. On timeout or failure the last
+reading remains visible. This updates charging data, not all door/climate data.
