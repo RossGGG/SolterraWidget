@@ -9,6 +9,7 @@ function setup(responses) {
  class Request {
   constructor(url) { this.url = url; requests.push(this); }
   async loadJSON() { const r = responses.shift(); this.response = {statusCode: r.status ?? 200, cookies: r.cookies ?? []}; return r.body; }
+  async loadString() { return JSON.stringify(await this.loadJSON()); }
  }
  const context = vm.createContext({Request, DebugLogger: {log(){}, error(){}}, LoginError: class LoginError extends Error {name='LoginError'}, NotLoggedInError: Error});
  vm.runInContext(source.slice(source.indexOf('class ToybaruAuth'), source.indexOf('class ToybaruClient')) + '\nglobalThis.Auth = ToybaruAuth;', context);
@@ -49,4 +50,24 @@ test('Babel 6 webapp contains no nullish or optional chaining syntax', () => {
  const babelScript = html.match(/<script type="text\/babel">([\s\S]*?)<\/script>/)[1];
  const withoutComments = babelScript.replace(/\/\/[^\n]*/g, '');
  assert.doesNotMatch(withoutComments, /\?\?|\?\./);
+});
+
+test('native web auth uses a restricted endpoint allowlist and keeps affinity cookies', async () => {
+ const {auth, requests} = setup([
+  {body: {callbacks: []}, cookies: [{name: 'amlbcookie', value: 'node1'}]},
+  {body: {tokenId: 'session'}}
+ ]);
+ const url = auth.configuration.realm.replace('oauth2', 'json') + '/authenticate';
+ await auth.web_auth_request({url, method: 'POST', body: '{}'});
+ const result = await auth.web_auth_request({url, method: 'POST', body: '{}'});
+ assert.equal(requests[1].headers.Cookie, 'amlbcookie=node1');
+ assert.equal(JSON.parse(result.body).tokenId, 'session');
+ await assert.rejects(auth.web_auth_request({url: 'https://example.com', method: 'GET'}), /Unsupported/);
+ assert.equal(requests.length, 2);
+});
+
+test('clearing tokens without an existing key is safe', () => {
+ const method = source.match(/    save_tokens\(tokens = null\) \{([\s\S]*?)\n    save_prefs/)[1];
+ const context = vm.createContext({Keychain: {contains: () => false, remove: () => {throw new Error('missing key')}}});
+ vm.runInContext('function save_tokens(tokens = null) {' + method + '\nsave_tokens();', context);
 });

@@ -60,7 +60,7 @@ The authentication and gateway configuration were compared with
 | Login tenant / OAuth client | Retain Subaru driver login, `oneappsdkclient`, and the shared Toyota callback URI |
 | Login tree | Use the default authenticate tree, matching the integration |
 | Callbacks | Select local login and handle OTP verification/resend confirmations |
-| Cookies | Include cookies in WebView fetches; retain response cookies through native login, authorization and token requests |
+| Cookies | Route Scriptable WebView login requests through native networking; retain cookies through discovery, OTP, authorization and token requests |
 | Gateway | Switch to `https://onecdn.telematicsct.com/oneapi` and the current resolver key / Subaru headers |
 | Refresh | Include callback URI and verifier; preserve tokens on temporary server failures |
 
@@ -70,10 +70,10 @@ in sync. Offline regression checks run with `node --test tests/auth.test.cjs`
 from the repository directory.
 
 This update has offline coverage, but still needs a real sign-in in Scriptable
-on iOS. In particular, WebView cookie acceptance depends on WKWebView and the
-server's cross-origin cookie policy. HttpOnly affinity cookies cannot be read by
-JavaScript or transferred through the existing WebView-to-Scriptable tokenId
-bridge. The direct native login retains affinity cookies; the WebView bridge
+on iOS. WebView login requests use a native bridge restricted to discovery and
+authentication endpoints on the configured Subaru login realm. This avoids
+WebView cross-origin cookie restrictions and keeps server affinity cookies in
+the native session used for the subsequent token exchange. The bridge still
 needs live verification. Vehicle discovery and remote commands also need live
 validation; this change does not port the integration's GraphQL features or
 empty-vehicle-list account bootstrap.

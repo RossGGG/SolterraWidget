@@ -1133,6 +1133,20 @@
     }
 
     class ScriptableRequest {
+        static authFetch(url, options = {}) {
+            this.authRequests = this.authRequests || {};
+            const id = Utilities.generateUUID();
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    delete this.authRequests[id];
+                    reject(new Error('Authentication request timed out.'));
+                }, 35000);
+                this.authRequests[id] = {resolve: resolve, reject: reject, timer: timer};
+                const payload = {id: id, url: url, method: options.method || 'GET', body: options.body};
+                this._send_request('auth_request=' + encodeURIComponent(JSON.stringify(payload)));
+            });
+        }
+
         static vehicleStatus() {
             this._send_request('get_vehicle_status=1')
         }
@@ -1187,6 +1201,19 @@
     }
 
     class ToybaruAuth {
+        async fetchAuth(url, options = {}) {
+            if (!/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent)) {
+                return fetch(url, options);
+            }
+            const result = await ScriptableRequest.authFetch(url, options);
+            return {
+                ok: result.status >= 200 && result.status < 300,
+                status: result.status,
+                headers: {forEach: function () {}},
+                json: async function () { return JSON.parse(result.body); }
+            };
+        }
+
         configuration = {
             realm: "https://login.subarudriverslogin.com/oauth2/realms/root/realms/tmna-native",
             client_id: "oneappsdkclient",
@@ -1219,7 +1246,8 @@
         async discoverOIDCConfig(realm = null) {
             const url = `${realm || this.configuration.realm}/.well-known/openid-configuration`;
 
-            const req = await fetch(url);
+            const req = await this.fetchAuth(url);
+            if (!req.ok) throw new Error('Login discovery failed (HTTP ' + req.status + ').');
             const config = await req.json();
 
             this.configuration.openid_config = config;
@@ -1288,8 +1316,7 @@
             const req_options = {
                 method: "POST",
                 headers: headers,
-                redirect: 'manual',
-                credentials: 'include'
+                redirect: 'manual'
             };
 
             let token_cookie;
@@ -1298,7 +1325,7 @@
             for (const i of Array(15).keys()) {
                 req_options.body = JSON.stringify(data);
                 try {
-                    req = await fetch(authorizationUrl, req_options);
+                    req = await this.fetchAuth(authorizationUrl, req_options);
                     let response_headers = {};
                     req.headers.forEach((value, key) => {
                         response_headers[key] = value;
@@ -1327,9 +1354,7 @@
                     }
 
                 } catch (error) {
-                    console.error(error);
-                    console.log(req);
-                    break;
+                    throw error;
                 }
 
                 if (!req.ok || req.status > 400) {
@@ -1337,6 +1362,7 @@
                 }
             }
 
+            if (!token_cookie) throw new Error('Authentication did not complete. Please try again.');
             return token_cookie;
         }
     }
@@ -1851,6 +1877,8 @@
                             ScriptableRequest.login(this.auth.tokenId, this.devicePrint.hardwareId);
                             this.hideModals({disponse: true});
                         }
+                    }).catch(() => {
+                        this.showToast({title: 'Sign-in unavailable', message: 'Could not contact the login service. Check your connection and tap Home to retry.', duration: 10000, autohide: true});
                     });
 
                     return false;
@@ -4231,6 +4259,15 @@
             return debug_menu;
         }
     }
+
+    window.onNativeAuthResponse = function (id, result) {
+        const pending = (ScriptableRequest.authRequests || {})[id];
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        delete ScriptableRequest.authRequests[id];
+        if (result.error) pending.reject(new Error(result.error));
+        else pending.resolve(result);
+    };
 
     const app = new SolterraConnectWebApp();
 
