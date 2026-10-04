@@ -409,7 +409,7 @@
             "modelYear": "2023",
             "modelCode": "YEAM15L-SWDHSA",
             "hwType": "210",
-            "vin": "JTMABABA01010011",
+            "vin": "DEMO_VEHICLE_00001",
             "externalSubscriptions": [],
             "proXSeatsVideoLink": null,
             "dataConsent": {
@@ -420,23 +420,23 @@
             },
             "remoteDisplay": "7",
             "subscriptionExpirationStatus": false,
-            "imei": "350778121567660",
+            "imei": "000000000000000",
             "nonCvtVehicle": false,
             "status": "ACTIVE",
             "remoteUser": true,
-            "remoteUserGuid": "f7a6ada35b52443d8ca4c5ad37c2ca7c",
+            "remoteUserGuid": "00000000000000000000000000000000",
             "generation": "21MM",
             "emergencyContact": null,
             "dcm": {
                 "dcmModelYear": "20",
                 "dcmSupplier": "64",
-                "euiccid": "89033023311330000000015230708798",
+                "euiccid": "00000000000000000000000000000000",
                 "dcmSupplierName": "Denso",
                 "dcmDestination": "2",
                 "countryCode": "104",
                 "dcmGrade": "1",
                 "hardwareType": "210",
-                "vehicleUnitTerminalNumber": "826A0FJ2100007BB"
+                "vehicleUnitTerminalNumber": "DEMO_TERMINAL"
             },
             "serviceConnectStatus": "ACTIVE",
             "features": {
@@ -793,7 +793,7 @@
                     "displayProductName": "Safety Connect",
                     "consolidatedGoodwillIds": [],
                     "termUnit": "MTH",
-                    "subscriptionID": "JTMABABA01010011-001010101",
+                    "subscriptionID": "DEMO_VEHICLE_00001-001010101",
                     "futureCancel": false,
                     "category": "STANDALONE",
                     "productType": null,
@@ -821,7 +821,7 @@
                     "displayProductName": "Remote Connect with Digital Key",
                     "consolidatedGoodwillIds": [],
                     "termUnit": "MTH",
-                    "subscriptionID": "JTMABABA01010011-001010101",
+                    "subscriptionID": "DEMO_VEHICLE_00001-001010101",
                     "futureCancel": false,
                     "category": "STANDALONE",
                     "productType": null,
@@ -847,7 +847,7 @@
                 "buttonText": null,
                 "imageUrl": null,
                 "name": "Connected Tech Support",
-                "link": "https://lexusconnectedtechnologysupport.com/lexus/home?source=OneApp&vin=JTMABABA01010011"
+                "link": "https://lexusconnectedtechnologysupport.com/lexus/home?source=OneApp&vin=DEMO_VEHICLE_00001"
             },
             "manufacturedDate": "2022-10-10",
             "headUnit": {
@@ -914,10 +914,10 @@
                 "frontDriverSeatHeater": true
             },
             "dcmActive": true,
-            "subscriberGuid": "f7a6ada35b52443d8ca4c5ad37c2ca7c",
+            "subscriberGuid": "00000000000000000000000000000000",
             "modelName": "Solterra Touring",
             "faqUrl": null,
-            "contractId": "S-1696112961503",
+            "contractId": "DEMO_CONTRACT",
             "electricalPlatformCode": "22",
             "remoteServiceCapabilities": {
                 "estartStopCapable": true,
@@ -1040,7 +1040,7 @@
             "remainingDistanceClimateOff": "226 mi",
             "nickName": "Car McBatteryFace",
             "lastUpdated": "2024-05-23T07:28:43.000Z",
-            "vin": "JTMHBABA01010011",
+            "vin": "DEMO_VEHICLE_00001",
             "lastUpdatedDescription": "2 minutes ago"
         },
         customizations: {
@@ -1279,7 +1279,7 @@
                 return;
             }
 
-            const authorizationUrl = `${oid_config.issuer.replace("oauth2", "json")}/authenticate?authIndexType=service&authIndexValue=OneAppSignIn`;
+            const authorizationUrl = `${oid_config.issuer.replace("oauth2", "json")}/authenticate`;
 
             // In Scriptable, you might need to handle this redirection differently, possibly opening a web view or Safari
             // console.log(`Please visit this URL to authorize: ${authorizationUrl}`);
@@ -1288,13 +1288,14 @@
             const req_options = {
                 method: "POST",
                 headers: headers,
-                redirect: 'manual'
+                redirect: 'manual',
+                credentials: 'include'
             };
 
             let token_cookie;
             let req;
 
-            for (const i of Array(10).keys()) {
+            for (const i of Array(15).keys()) {
                 req_options.body = JSON.stringify(data);
                 try {
                     req = await fetch(authorizationUrl, req_options);
@@ -1303,6 +1304,7 @@
                         response_headers[key] = value;
                     });
 
+                    if (!req.ok) throw new Error(`Authentication failed (HTTP ${req.status}).`);
                     let json = await req.json()
 
                     if (json.tokenId) {
@@ -1674,9 +1676,10 @@
                     case "NameCallback":
                         if (callback.output.length > 0) {
                             if (callback.output[0].value === "ui_locales") {
-                                result = {...result, ...await this.showSignIn()};
+                                callback.input[0].value = "en-US";
                             } else if (callback.output[0].value === "User Name") {
-                                result = {...result, ...await this.showSignIn(this.createSignInCredentialsForm, 'signInUsernameModal')};
+                                const credentials = await this.showSignIn(this.createSignInCredentialsForm, 'signInUsernameModal');
+                                callback.input[0].value = credentials.IDToken1;
                             }
                         }
                         break;
@@ -1684,9 +1687,11 @@
                     case "PasswordCallback":
                         if (callback.output.length > 0) {
                             if (callback.output[0].value === "Password") {
-                                result = {...result, ...{IDToken1: document.getElementById('passwordInput').value}};
+                                callback.input[0].value = document.getElementById('passwordInput').value;
                             } else {
-                                result = {...result, ...await this.showSignIn(this.createSignInOtpForm, 'signInOtpModal')};
+                                const otp = await this.showSignIn(this.createSignInOtpForm, 'signInOtpModal');
+                                callback.input[0].value = otp.IDToken2;
+                                result.IDToken3 = otp.IDToken3;
                             }
                         }
 
@@ -1694,10 +1699,16 @@
 
                     case "ChoiceCallback":
                         // Find callback input with the name "choices" and a value that is a list with the first entry being "save"
-                        const save = callback.input.find(input => input.name === "choices" && input.value[0] === "save");
+                        const save = callback.input.find(input => input.name === "choices" && Array.isArray(input.value) && input.value[0] === "save");
                         if (save) {
-                            result = {...result, ...{IDToken1: true}};
+                            callback.input[0].value = true;
+                        } else {
+                            callback.input[0].value = 0; // Local account login
                         }
+                        break;
+
+                    case "ConfirmationCallback":
+                        callback.input[0].value = result.IDToken3 ?? 0;
                         break;
 
                     case "TextOutputCallback":
@@ -3294,7 +3305,7 @@
             // Create the span element for vehicle_vin
             let spanVehicleVinElement = document.createElement('span');
             spanVehicleVinElement.id = 'vehicle_vin';
-            spanVehicleVinElement.textContent = '19823749238741234';
+            spanVehicleVinElement.textContent = 'DEMO_VEHICLE_00001';
 
             // Append the spanVehicleVinElement to figcaptionElement
             figcaptionElement.appendChild(spanVehicleVinElement);

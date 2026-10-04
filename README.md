@@ -48,3 +48,32 @@ Users can also use the app to customize the widget appearance and behavior, and 
 
 ### Notes
 * Third-party login providers are not currently supported.  This should be able to be added in the future.
+
+### Current North American API authentication
+
+The authentication and gateway configuration were compared with
+[bhaggs/ha-toyota-na](https://github.com/bhaggs/ha-toyota-na/tree/fbcc490298578b587b157468414b4de9a9824a03/custom_components/toyota_na/oneapi)
+(SubaruConnect integration, snapshot `fbcc490`, October 3, 2026).
+
+| Area | SolterraWidget update |
+| --- | --- |
+| Login tenant / OAuth client | Retain Subaru driver login, `oneappsdkclient`, and the shared Toyota callback URI |
+| Login tree | Use the default authenticate tree, matching the integration |
+| Callbacks | Select local login and handle OTP verification/resend confirmations |
+| Cookies | Include cookies in WebView fetches; retain response cookies through native login, authorization and token requests |
+| Gateway | Switch to `https://onecdn.telematicsct.com/oneapi` and the current resolver key / Subaru headers |
+| Refresh | Include callback URI and verifier; preserve tokens on temporary server failures |
+
+Update the Scriptable script and sign in again if your existing session is rejected.
+The editable HTML is also embedded in `Solterra Connect.js`; both copies must stay
+in sync. Offline regression checks run with `node --test tests/auth.test.cjs`
+from the repository directory.
+
+This update has offline coverage, but still needs a real sign-in in Scriptable
+on iOS. In particular, WebView cookie acceptance depends on WKWebView and the
+server's cross-origin cookie policy. HttpOnly affinity cookies cannot be read by
+JavaScript or transferred through the existing WebView-to-Scriptable tokenId
+bridge. The direct native login retains affinity cookies; the WebView bridge
+needs live verification. Vehicle discovery and remote commands also need live
+validation; this change does not port the integration's GraphQL features or
+empty-vehicle-list account bootstrap.
