@@ -409,7 +409,7 @@
             "modelYear": "2023",
             "modelCode": "YEAM15L-SWDHSA",
             "hwType": "210",
-            "vin": "JTMABABA01010011",
+            "vin": "DEMO_VEHICLE_00001",
             "externalSubscriptions": [],
             "proXSeatsVideoLink": null,
             "dataConsent": {
@@ -420,23 +420,23 @@
             },
             "remoteDisplay": "7",
             "subscriptionExpirationStatus": false,
-            "imei": "350778121567660",
+            "imei": "000000000000000",
             "nonCvtVehicle": false,
             "status": "ACTIVE",
             "remoteUser": true,
-            "remoteUserGuid": "f7a6ada35b52443d8ca4c5ad37c2ca7c",
+            "remoteUserGuid": "00000000000000000000000000000000",
             "generation": "21MM",
             "emergencyContact": null,
             "dcm": {
                 "dcmModelYear": "20",
                 "dcmSupplier": "64",
-                "euiccid": "89033023311330000000015230708798",
+                "euiccid": "00000000000000000000000000000000",
                 "dcmSupplierName": "Denso",
                 "dcmDestination": "2",
                 "countryCode": "104",
                 "dcmGrade": "1",
                 "hardwareType": "210",
-                "vehicleUnitTerminalNumber": "826A0FJ2100007BB"
+                "vehicleUnitTerminalNumber": "DEMO_TERMINAL"
             },
             "serviceConnectStatus": "ACTIVE",
             "features": {
@@ -793,7 +793,7 @@
                     "displayProductName": "Safety Connect",
                     "consolidatedGoodwillIds": [],
                     "termUnit": "MTH",
-                    "subscriptionID": "JTMABABA01010011-001010101",
+                    "subscriptionID": "DEMO_VEHICLE_00001-001010101",
                     "futureCancel": false,
                     "category": "STANDALONE",
                     "productType": null,
@@ -821,7 +821,7 @@
                     "displayProductName": "Remote Connect with Digital Key",
                     "consolidatedGoodwillIds": [],
                     "termUnit": "MTH",
-                    "subscriptionID": "JTMABABA01010011-001010101",
+                    "subscriptionID": "DEMO_VEHICLE_00001-001010101",
                     "futureCancel": false,
                     "category": "STANDALONE",
                     "productType": null,
@@ -847,7 +847,7 @@
                 "buttonText": null,
                 "imageUrl": null,
                 "name": "Connected Tech Support",
-                "link": "https://lexusconnectedtechnologysupport.com/lexus/home?source=OneApp&vin=JTMABABA01010011"
+                "link": "https://lexusconnectedtechnologysupport.com/lexus/home?source=OneApp&vin=DEMO_VEHICLE_00001"
             },
             "manufacturedDate": "2022-10-10",
             "headUnit": {
@@ -914,10 +914,10 @@
                 "frontDriverSeatHeater": true
             },
             "dcmActive": true,
-            "subscriberGuid": "f7a6ada35b52443d8ca4c5ad37c2ca7c",
+            "subscriberGuid": "00000000000000000000000000000000",
             "modelName": "Solterra Touring",
             "faqUrl": null,
-            "contractId": "S-1696112961503",
+            "contractId": "DEMO_CONTRACT",
             "electricalPlatformCode": "22",
             "remoteServiceCapabilities": {
                 "estartStopCapable": true,
@@ -1040,7 +1040,7 @@
             "remainingDistanceClimateOff": "226 mi",
             "nickName": "Car McBatteryFace",
             "lastUpdated": "2024-05-23T07:28:43.000Z",
-            "vin": "JTMHBABA01010011",
+            "vin": "DEMO_VEHICLE_00001",
             "lastUpdatedDescription": "2 minutes ago"
         },
         customizations: {
@@ -1133,8 +1133,22 @@
     }
 
     class ScriptableRequest {
+        static authFetch(url, options = {}) {
+            this.authRequests = this.authRequests || {};
+            const id = Utilities.generateUUID();
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    delete this.authRequests[id];
+                    reject(new Error('Authentication request timed out.'));
+                }, 35000);
+                this.authRequests[id] = {resolve: resolve, reject: reject, timer: timer};
+                const payload = {id: id, url: url, method: options.method || 'GET', body: options.body};
+                this._send_request('auth_request=' + encodeURIComponent(JSON.stringify(payload)));
+            });
+        }
+
         static vehicleStatus() {
-            this._send_request('get_vehicle_status=1')
+            this._send_request('get_vehicle_status=1&force_refresh=1')
         }
 
         static vehicleList() {
@@ -1187,6 +1201,19 @@
     }
 
     class ToybaruAuth {
+        async fetchAuth(url, options = {}) {
+            if (!/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent)) {
+                return fetch(url, options);
+            }
+            const result = await ScriptableRequest.authFetch(url, options);
+            return {
+                ok: result.status >= 200 && result.status < 300,
+                status: result.status,
+                headers: {forEach: function () {}},
+                json: async function () { return JSON.parse(result.body); }
+            };
+        }
+
         configuration = {
             realm: "https://login.subarudriverslogin.com/oauth2/realms/root/realms/tmna-native",
             client_id: "oneappsdkclient",
@@ -1219,7 +1246,8 @@
         async discoverOIDCConfig(realm = null) {
             const url = `${realm || this.configuration.realm}/.well-known/openid-configuration`;
 
-            const req = await fetch(url);
+            const req = await this.fetchAuth(url);
+            if (!req.ok) throw new Error('Login discovery failed (HTTP ' + req.status + ').');
             const config = await req.json();
 
             this.configuration.openid_config = config;
@@ -1279,7 +1307,7 @@
                 return;
             }
 
-            const authorizationUrl = `${oid_config.issuer.replace("oauth2", "json")}/authenticate?authIndexType=service&authIndexValue=OneAppSignIn`;
+            const authorizationUrl = `${oid_config.issuer.replace("oauth2", "json")}/authenticate`;
 
             // In Scriptable, you might need to handle this redirection differently, possibly opening a web view or Safari
             // console.log(`Please visit this URL to authorize: ${authorizationUrl}`);
@@ -1294,15 +1322,16 @@
             let token_cookie;
             let req;
 
-            for (const i of Array(10).keys()) {
+            for (const i of Array(15).keys()) {
                 req_options.body = JSON.stringify(data);
                 try {
-                    req = await fetch(authorizationUrl, req_options);
+                    req = await this.fetchAuth(authorizationUrl, req_options);
                     let response_headers = {};
                     req.headers.forEach((value, key) => {
                         response_headers[key] = value;
                     });
 
+                    if (!req.ok) throw new Error(`Authentication failed (HTTP ${req.status}).`);
                     let json = await req.json()
 
                     if (json.tokenId) {
@@ -1325,9 +1354,7 @@
                     }
 
                 } catch (error) {
-                    console.error(error);
-                    console.log(req);
-                    break;
+                    throw error;
                 }
 
                 if (!req.ok || req.status > 400) {
@@ -1335,6 +1362,7 @@
                 }
             }
 
+            if (!token_cookie) throw new Error('Authentication did not complete. Please try again.');
             return token_cookie;
         }
     }
@@ -1342,6 +1370,9 @@
 
     class SolterraConnectWebApp {
         constructor() {
+            this.nativeSessionReady = !/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent);
+            this.loginPending = false;
+            this.authGeneration = 0;
             this.regions = [
                 {text: "USA", value: "US"},
                 {text: "Canada", value: "CA"},
@@ -1674,9 +1705,10 @@
                     case "NameCallback":
                         if (callback.output.length > 0) {
                             if (callback.output[0].value === "ui_locales") {
-                                result = {...result, ...await this.showSignIn()};
+                                callback.input[0].value = "en-US";
                             } else if (callback.output[0].value === "User Name") {
-                                result = {...result, ...await this.showSignIn(this.createSignInCredentialsForm, 'signInUsernameModal')};
+                                const credentials = await this.showSignIn(this.createSignInCredentialsForm, 'signInUsernameModal');
+                                callback.input[0].value = credentials.IDToken1;
                             }
                         }
                         break;
@@ -1684,9 +1716,11 @@
                     case "PasswordCallback":
                         if (callback.output.length > 0) {
                             if (callback.output[0].value === "Password") {
-                                result = {...result, ...{IDToken1: document.getElementById('passwordInput').value}};
+                                callback.input[0].value = document.getElementById('passwordInput').value;
                             } else {
-                                result = {...result, ...await this.showSignIn(this.createSignInOtpForm, 'signInOtpModal')};
+                                const otp = await this.showSignIn(this.createSignInOtpForm, 'signInOtpModal');
+                                callback.input[0].value = otp.IDToken2;
+                                result.IDToken3 = otp.IDToken3;
                             }
                         }
 
@@ -1694,10 +1728,17 @@
 
                     case "ChoiceCallback":
                         // Find callback input with the name "choices" and a value that is a list with the first entry being "save"
-                        const save = callback.input.find(input => input.name === "choices" && input.value[0] === "save");
+                        const save = callback.input.find(input => input.name === "choices" && Array.isArray(input.value) && input.value[0] === "save");
                         if (save) {
-                            result = {...result, ...{IDToken1: true}};
+                            callback.input[0].value = true;
+                        } else {
+                            callback.input[0].value = 0; // Local account login
                         }
+                        break;
+
+                    case "ConfirmationCallback":
+                        // Babel 6.26 (used by this WebView) cannot parse ??.
+                        callback.input[0].value = result.IDToken3 == null ? 0 : result.IDToken3;
                         break;
 
                     case "TextOutputCallback":
@@ -1828,17 +1869,27 @@
 
         check_login() {
             if (/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent)) {
+                // Native saved credentials are authoritative; do not start a second login during startup.
+                if (!this.nativeSessionReady) return false;
                 // iOS device using WKWebView (Scriptable)
                 if (!this.user || Object.keys(this.user).length === 0) {
                     for (let element of this.main.getElementsByClassName('container')) {
                         element.style.display = 'none';
                     }
+                    if (this.loginPending) return false;
+                    this.loginPending = true;
+                    const generation = this.authGeneration;
                     this.auth.authenticate_user({handle_callbacks: this.handle_auth_callbacks.bind(this)}).then(() => {
+                        if (generation !== this.authGeneration || Object.keys(this.user || {}).length) return;
                         if (this.auth.tokenId) {
                             // this.user.token_cookie = result;
                             ScriptableRequest.login(this.auth.tokenId, this.devicePrint.hardwareId);
                             this.hideModals({disponse: true});
                         }
+                    }).catch(() => {
+                        if (generation !== this.authGeneration || Object.keys(this.user || {}).length) return;
+                        this.loginPending = false;
+                        this.showToast({title: 'Sign-in unavailable', message: 'Could not contact the login service. Check your connection and tap Home to retry.', duration: 10000, autohide: true});
                     });
 
                     return false;
@@ -1847,6 +1898,22 @@
             }
 
             return true;
+        }
+
+        updateRefreshState(state) {
+            this.refreshState = state;
+            const label = document.getElementById('charging_refresh_message');
+            const spinner = document.getElementById('charging_refresh_spinner');
+            const button = document.getElementById('charging_refresh_button');
+            if (!label) return;
+            label.textContent = {
+                pending: 'Requesting fresh charging data… Showing last available reading.',
+                updated: 'Charging data updated from a newer vehicle reading.',
+                timeout: 'No newer charging reading yet. Showing last available data; try again later.',
+                error: 'Could not refresh charging data. Showing last available data.'
+            }[state] || '';
+            spinner.hidden = state !== 'pending';
+            button.disabled = state === 'pending';
         }
 
         update_container_visibilities() {
@@ -1865,6 +1932,7 @@
                         case 'vehicle_info':
                             this.main.appendChild(this.createVehicleInfoContainer(containerId));
                             this.updateVehicleStatus(this.vehicle_status);
+                            this.updateRefreshState('pending');
                             ScriptableRequest.vehicleStatus();
                             break;
 
@@ -3294,7 +3362,7 @@
             // Create the span element for vehicle_vin
             let spanVehicleVinElement = document.createElement('span');
             spanVehicleVinElement.id = 'vehicle_vin';
-            spanVehicleVinElement.textContent = '19823749238741234';
+            spanVehicleVinElement.textContent = 'DEMO_VEHICLE_00001';
 
             // Append the spanVehicleVinElement to figcaptionElement
             figcaptionElement.appendChild(spanVehicleVinElement);
@@ -3450,6 +3518,17 @@
             containerDiv.appendChild(info_widgets_div);
 
             this.applyPlaceholder(containerDiv)
+
+            const refreshRow = document.createElement('div');
+            refreshRow.className = 'd-flex align-items-center gap-2 my-3';
+            refreshRow.setAttribute('role', 'status');
+            refreshRow.setAttribute('aria-live', 'polite');
+            refreshRow.innerHTML = '<span id="charging_refresh_spinner" class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span><small id="charging_refresh_message" class="flex-grow-1"></small><button id="charging_refresh_button" class="btn btn-outline-secondary btn-sm" type="button">Refresh charging</button>';
+            refreshRow.querySelector('button').addEventListener('click', () => {
+                this.updateRefreshState('pending');
+                ScriptableRequest.vehicleStatus();
+            });
+            containerDiv.prepend(refreshRow);
 
             // Convert the container div to HTML string and return
             return containerDiv;
@@ -4220,6 +4299,15 @@
         }
     }
 
+    window.onNativeAuthResponse = function (id, result) {
+        const pending = (ScriptableRequest.authRequests || {})[id];
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        delete ScriptableRequest.authRequests[id];
+        if (result.error) pending.reject(new Error(result.error));
+        else pending.resolve(result);
+    };
+
     const app = new SolterraConnectWebApp();
 
     if (document.readyState === "loading") {  // Loading hasn't finished yet
@@ -4243,6 +4331,11 @@
             case "vehicle_status":
                 app.vehicle_status = data.value;
                 app.updateVehicleStatus(app.vehicle_status);
+                if (app.refreshState) app.updateRefreshState(app.refreshState);
+                break;
+
+            case "charging_refresh":
+                app.updateRefreshState(data.value);
                 break;
 
             case "vehicle_list":
@@ -4251,6 +4344,9 @@
                 break;
 
             case "user":
+                app.nativeSessionReady = true;
+                app.authGeneration += 1;
+                app.loginPending = false;
                 app.user = data.value;
                 sessionStorage.setItem('solterraConnectUser', JSON.stringify(app.user));
                 app.hideModals({dispose: true});
