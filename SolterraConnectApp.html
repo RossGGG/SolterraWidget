@@ -1708,7 +1708,8 @@
                         break;
 
                     case "ConfirmationCallback":
-                        callback.input[0].value = result.IDToken3 ?? 0;
+                        // Babel 6.26 (used by this WebView) cannot parse ??.
+                        callback.input[0].value = result.IDToken3 == null ? 0 : result.IDToken3;
                         break;
 
                     case "TextOutputCallback":

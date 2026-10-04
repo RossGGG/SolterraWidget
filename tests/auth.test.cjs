@@ -44,3 +44,9 @@ test('embedded app equals editable HTML and both scripts parse', () => {
  new vm.Script('(async function(){'+source+'\n})');
  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) if (!match[0].includes('text/babel')) new vm.Script(match[1]);
 });
+
+test('Babel 6 webapp contains no nullish or optional chaining syntax', () => {
+ const babelScript = html.match(/<script type="text\/babel">([\s\S]*?)<\/script>/)[1];
+ const withoutComments = babelScript.replace(/\/\/[^\n]*/g, '');
+ assert.doesNotMatch(withoutComments, /\?\?|\?\./);
+});
